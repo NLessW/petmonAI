@@ -136,19 +136,20 @@ async function runAnalysis() {
     btn.textContent = '분석 중...';
     btn.disabled = true;
     results = [];
-    analyzedCaptures = [];
 
-    // 각 캡처 이미지를 8등분하여 분석
+    // 각 캡처 이미지를 8등분하여 분석 (결과를 이미지별로 그룹화)
     for (let i = 0; i < captures.length; i++) {
         const slices = await sliceImage(captures[i]);
+        const imageResults = [];
         for (let j = 0; j < slices.length; j++) {
             const result = await predictImage(slices[j]);
-            results.push(result);
-            analyzedCaptures.push(slices[j]);
+            imageResults.push(result);
         }
+        results.push(imageResults);
     }
 
-    evaluations = new Array(results.length).fill(null);
+    evaluations = new Array(captures.length).fill(null).map(() => new Array(8).fill(null));
+    analyzedCaptures = [...captures];
     displayResults();
 
     // 분석 완료 후 초기화하여 다시 테스트 가능하게
@@ -239,27 +240,107 @@ function displayResults() {
     document.getElementById('results-section').style.display = 'block';
     const evalContainer = document.getElementById('evaluation-container');
     evalContainer.innerHTML = '';
-    results.forEach((r, i) => {
+
+    results.forEach((imageResults, imgIdx) => {
         const card = document.createElement('div');
         card.className = 'eval-card';
-        card.innerHTML =
-            '<img src="' +
-            analyzedCaptures[i] +
-            '"><div class="prediction">예측: ' +
-            r.label +
-            '</div><div class="confidence">신뢰도: ' +
-            (r.confidence * 100).toFixed(1) +
-            '%</div><div class="eval-buttons"><button class="correct-btn" onclick="markResult(' +
-            i +
-            ',true)">✅ 맞음</button><button class="wrong-btn" onclick="markResult(' +
-            i +
-            ',false)">❌ 틀림</button></div>';
+
+        // 이미지 컨테이너 생성
+        const imgContainer = document.createElement('div');
+        imgContainer.className = 'image-container';
+        imgContainer.style.position = 'relative';
+
+        const img = document.createElement('img');
+        img.src = analyzedCaptures[imgIdx];
+        img.style.width = '100%';
+        img.style.display = 'block';
+        imgContainer.appendChild(img);
+
+        // 8개 영역 오버레이 생성
+        for (let i = 0; i < 8; i++) {
+            const overlay = document.createElement('div');
+            overlay.className = 'slice-overlay';
+            overlay.style.position = 'absolute';
+            overlay.style.left = i * 12.5 + '%';
+            overlay.style.top = '0';
+            overlay.style.width = '12.5%';
+            overlay.style.height = '100%';
+            overlay.style.cursor = 'pointer';
+            overlay.style.transition = 'background 0.2s';
+
+            const r = imageResults[i];
+            const tooltip = document.createElement('div');
+            tooltip.className = 'slice-tooltip';
+            tooltip.innerHTML = '<strong>' + r.label + '</strong><br>' + (r.confidence * 100).toFixed(1) + '%';
+            tooltip.style.display = 'none';
+            overlay.appendChild(tooltip);
+
+            overlay.addEventListener('mouseenter', function () {
+                this.style.background = 'rgba(0, 255, 100, 0.3)';
+                tooltip.style.display = 'block';
+            });
+            overlay.addEventListener('mouseleave', function () {
+                this.style.background = 'transparent';
+                tooltip.style.display = 'none';
+            });
+
+            imgContainer.appendChild(overlay);
+        }
+
+        card.appendChild(imgContainer);
+
+        // 전체 평가 정보 및 버튼
+        const infoDiv = document.createElement('div');
+        infoDiv.className = 'eval-info';
+
+        // 각 조각의 예측 요약
+        const summary = {};
+        imageResults.forEach((r) => {
+            summary[r.label] = (summary[r.label] || 0) + 1;
+        });
+        const summaryText = Object.entries(summary)
+            .map(([label, count]) => label + '×' + count)
+            .join(', ');
+
+        infoDiv.innerHTML =
+            '<div class="prediction">예측: ' +
+            summaryText +
+            '</div>' +
+            '<div class="eval-buttons">' +
+            '<button class="correct-btn" onclick="markImageResult(' +
+            imgIdx +
+            ',true)">✅ 전체 맞음</button>' +
+            '<button class="wrong-btn" onclick="markImageResult(' +
+            imgIdx +
+            ',false)">❌ 전체 틀림</button>' +
+            '</div>';
+
+        card.appendChild(infoDiv);
         evalContainer.appendChild(card);
     });
+
     updateTable();
     updateChart();
     document.getElementById('results-section').scrollIntoView({ behavior: 'smooth' });
 }
+
+function markImageResult(imgIdx, isCorrect) {
+    for (let i = 0; i < 8; i++) {
+        evaluations[imgIdx][i] = isCorrect;
+    }
+
+    const cards = document.querySelectorAll('.eval-card');
+    const btns = cards[imgIdx].querySelectorAll('.eval-buttons button');
+    btns.forEach((b) => b.classList.remove('selected'));
+    if (isCorrect) btns[0].classList.add('selected');
+    else btns[1].classList.add('selected');
+
+    updateTable();
+    updateChart();
+    updateFinalAccuracy();
+}
+
+window.markImageResult = markImageResult;
 
 function markResult(i, result) {
     if (result === false) {
@@ -347,25 +428,31 @@ window.selectActualClass = selectActualClass;
 function updateTable() {
     const tbody = document.querySelector('#results-table tbody');
     tbody.innerHTML = '';
-    results.forEach((r, i) => {
-        const evalText =
-            evaluations[i] === null
-                ? '-'
-                : evaluations[i] === true
-                  ? '<span class="eval-correct">✅ 맞음</span>'
-                  : '<span class="eval-wrong">❌ 틀림 → ' + evaluations[i].actualClass + '</span>';
-        const row = document.createElement('tr');
-        row.innerHTML =
-            '<td><img src="' +
-            analyzedCaptures[i] +
-            '" class="table-img"></td><td>' +
-            r.label +
-            '</td><td>' +
-            (r.confidence * 100).toFixed(1) +
-            '%</td><td>' +
-            evalText +
-            '</td>';
-        tbody.appendChild(row);
+
+    results.forEach((imageResults, imgIdx) => {
+        imageResults.forEach((r, sliceIdx) => {
+            const evalStatus = evaluations[imgIdx][sliceIdx];
+            const evalText =
+                evalStatus === null
+                    ? '-'
+                    : evalStatus === true
+                      ? '<span class="eval-correct">✅ 맞음</span>'
+                      : '<span class="eval-wrong">❌ 틀림</span>';
+            const row = document.createElement('tr');
+            row.innerHTML =
+                '<td>이미지' +
+                (imgIdx + 1) +
+                '-' +
+                (sliceIdx + 1) +
+                '</td><td>' +
+                r.label +
+                '</td><td>' +
+                (r.confidence * 100).toFixed(1) +
+                '%</td><td>' +
+                evalText +
+                '</td>';
+            tbody.appendChild(row);
+        });
     });
 }
 
@@ -373,10 +460,14 @@ function updateChart() {
     const ctx = document.getElementById('accuracy-chart').getContext('2d');
     const classStats = {};
     metadata.labels.forEach((l) => (classStats[l] = { total: 0, correct: 0 }));
-    results.forEach((r, i) => {
-        classStats[r.label].total++;
-        if (evaluations[i] === true) classStats[r.label].correct++;
+
+    results.forEach((imageResults, imgIdx) => {
+        imageResults.forEach((r, sliceIdx) => {
+            classStats[r.label].total++;
+            if (evaluations[imgIdx][sliceIdx] === true) classStats[r.label].correct++;
+        });
     });
+
     const labels = metadata.labels,
         accuracyData = labels.map((l) =>
             classStats[l].total === 0 ? 0 : ((classStats[l].correct / classStats[l].total) * 100).toFixed(1),
@@ -419,9 +510,18 @@ function updateChart() {
 }
 
 function updateFinalAccuracy() {
-    const evaluated = evaluations.filter((e) => e !== null),
-        correct = evaluations.filter((e) => e === true).length,
-        total = evaluated.length;
+    let total = 0;
+    let correct = 0;
+
+    evaluations.forEach((imageEvals) => {
+        imageEvals.forEach((e) => {
+            if (e !== null) {
+                total++;
+                if (e === true) correct++;
+            }
+        });
+    });
+
     document.getElementById('evaluated-count').textContent = total;
     document.getElementById('final-accuracy-value').textContent =
         total > 0 ? ((correct / total) * 100).toFixed(1) + '% (' + correct + '/' + total + ')' : '-';
