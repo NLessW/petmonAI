@@ -249,6 +249,63 @@ button:disabled {
     color: #888;
     font-weight: bold;
 }
+.class-selector {
+    margin-top: 15px;
+    padding: 15px;
+    background: #1a1a1a;
+    border-radius: 10px;
+    border: 1px solid #444;
+}
+.selector-title {
+    color: #fff;
+    font-weight: bold;
+    margin-bottom: 10px;
+}
+.class-option {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    margin: 5px 0;
+    background: #333;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+.class-option:hover {
+    background: #444;
+}
+.class-name {
+    color: #fff;
+    min-width: 100px;
+}
+.conf-bar-bg {
+    flex: 1;
+    height: 8px;
+    background: #222;
+    border-radius: 4px;
+    overflow: hidden;
+}
+.conf-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #0f0, #0a0);
+    border-radius: 4px;
+}
+.conf-value {
+    color: #0f0;
+    min-width: 50px;
+    text-align: right;
+    font-size: 0.9em;
+}
+.actual-class {
+    margin-top: 10px;
+    padding: 8px 12px;
+    background: #eb3349;
+    color: white;
+    border-radius: 8px;
+    font-weight: bold;
+    text-align: center;
+}
 .final-accuracy {
     text-align: center;
     padding: 30px;

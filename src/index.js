@@ -216,17 +216,83 @@ function displayResults() {
 }
 
 function markResult(i, result) {
+    if (result === false) {
+        showClassSelector(i);
+        return;
+    }
     evaluations[i] = result;
     const cards = document.querySelectorAll('.eval-card'),
         btns = cards[i].querySelectorAll('.eval-buttons button');
     btns.forEach((b) => b.classList.remove('selected'));
     if (result === true) btns[0].classList.add('selected');
-    else if (result === false) btns[1].classList.add('selected');
     else if (result === 'normal') btns[2].classList.add('selected');
+    hideClassSelector(i);
     updateTable();
     updateChart();
     updateFinalAccuracy();
 }
+
+function showClassSelector(i) {
+    const cards = document.querySelectorAll('.eval-card');
+    const card = cards[i];
+    
+    // 이미 선택기가 있으면 제거
+    const existing = card.querySelector('.class-selector');
+    if (existing) existing.remove();
+    
+    const r = results[i];
+    let selectorHtml = '<div class="class-selector"><div class="selector-title">실제 클래스 선택:</div>';
+    
+    metadata.labels.forEach((label, idx) => {
+        const conf = (r.allPredictions[idx] * 100).toFixed(1);
+        selectorHtml += '<div class="class-option" onclick="selectActualClass(' + i + ',\'' + label + '\')">' +
+            '<span class="class-name">' + label + '</span>' +
+            '<div class="conf-bar-bg"><div class="conf-bar" style="width:' + conf + '%"></div></div>' +
+            '<span class="conf-value">' + conf + '%</span></div>';
+    });
+    
+    // ok_normal 옵션도 추가
+    selectorHtml += '<div class="class-option" onclick="selectActualClass(' + i + ',\'ok_normal\')">' +
+        '<span class="class-name">ok_normal (해당없음)</span>' +
+        '<div class="conf-bar-bg"><div class="conf-bar" style="width:0%"></div></div>' +
+        '<span class="conf-value">-</span></div>';
+    
+    selectorHtml += '</div>';
+    
+    card.insertAdjacentHTML('beforeend', selectorHtml);
+    
+    // 틀림 버튼 선택 표시
+    const btns = card.querySelectorAll('.eval-buttons button');
+    btns.forEach((b) => b.classList.remove('selected'));
+    btns[1].classList.add('selected');
+}
+
+function hideClassSelector(i) {
+    const cards = document.querySelectorAll('.eval-card');
+    const existing = cards[i].querySelector('.class-selector');
+    if (existing) existing.remove();
+}
+
+function selectActualClass(i, actualClass) {
+    evaluations[i] = { correct: false, actualClass: actualClass };
+    hideClassSelector(i);
+    
+    // 선택된 클래스 표시
+    const cards = document.querySelectorAll('.eval-card');
+    const card = cards[i];
+    let actualDisplay = card.querySelector('.actual-class');
+    if (!actualDisplay) {
+        card.insertAdjacentHTML('beforeend', '<div class="actual-class">실제: ' + actualClass + '</div>');
+    } else {
+        actualDisplay.textContent = '실제: ' + actualClass;
+    }
+    
+    updateTable();
+    updateChart();
+    updateFinalAccuracy();
+}
+
+window.selectActualClass = selectActualClass;
 
 function updateTable() {
     const tbody = document.querySelector('#results-table tbody');
@@ -237,9 +303,9 @@ function updateTable() {
                 ? '-'
                 : evaluations[i] === true
                   ? '<span class="eval-correct">✅ 맞음</span>'
-                  : evaluations[i] === false
-                    ? '<span class="eval-wrong">❌ 틀림</span>'
-                    : '<span class="eval-normal">⚪ ok_normal</span>';
+                  : evaluations[i] === 'normal'
+                    ? '<span class="eval-normal">⚪ ok_normal</span>'
+                    : '<span class="eval-wrong">❌ 틀림 → ' + evaluations[i].actualClass + '</span>';
         const row = document.createElement('tr');
         row.innerHTML =
             '<td><img src="' +
