@@ -114,7 +114,7 @@ button:disabled {
     max-width: 640px;
     border-radius: 15px;
     background: #000;
-    aspect-ratio: 16/9;
+    aspect-ratio: 4/3;
 }
 .webcam-controls {
     display: flex;
@@ -129,7 +129,7 @@ button:disabled {
 }
 .capture-item {
     position: relative;
-    aspect-ratio: 16/9;
+    aspect-ratio: 1;
     border-radius: 10px;
     overflow: hidden;
     background: #333;
@@ -164,7 +164,7 @@ button:disabled {
 }
 .eval-card img {
     width: 100%;
-    aspect-ratio: 16/9;
+    height: 150px;
     object-fit: cover;
     border-radius: 10px;
     margin-bottom: 10px;
@@ -232,8 +232,8 @@ button:disabled {
     background: #333;
 }
 .table-img {
-    width: 80px;
-    aspect-ratio: 16/9;
+    width: 60px;
+    height: 60px;
     object-fit: cover;
     border-radius: 8px;
 }
