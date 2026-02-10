@@ -136,7 +136,12 @@ async function runAnalysis() {
     evaluations = new Array(captures.length).fill(null);
     for (let i = 0; i < captures.length; i++) results.push(await predictImage(captures[i]));
     displayResults();
-    btn.textContent = '✅ 분석 완료';
+    
+    // 분석 완료 후 초기화하여 다시 테스트 가능하게
+    captures = [];
+    updateCapturesGrid();
+    btn.textContent = '🔍 판독 시작 (0/10)';
+    btn.disabled = false;
 }
 
 function updateCapturesGrid() {
