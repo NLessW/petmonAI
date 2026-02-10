@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="ko">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>PETMON AI Test</title>
+        <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+        <link rel="stylesheet" href="css/styles.css" />
+    </head>
+    <body>
+        <div class="container">
+            <h1>PETMON AI 테스트</h1>
+
+            <!-- 모델 업로드 섹션 -->
+            <section class="upload-section">
+                <h2>1. 모델 파일 업로드</h2>
+                <div class="file-inputs">
+                    <div class="file-input-group">
+                        <label for="metadata">metadata.json</label>
+                        <input type="file" id="metadata" accept=".json" />
+                        <span class="file-status" id="metadata-status">❌</span>
+                    </div>
+                    <div class="file-input-group">
+                        <label for="model">model.json</label>
+                        <input type="file" id="model" accept=".json" />
+                        <span class="file-status" id="model-status">❌</span>
+                    </div>
+                    <div class="file-input-group">
+                        <label for="weights">weights.bin</label>
+                        <input type="file" id="weights" accept=".bin" />
+                        <span class="file-status" id="weights-status">❌</span>
+                    </div>
+                </div>
+                <button id="load-model-btn" disabled>모델 로드</button>
+                <p id="model-status-msg"></p>
+            </section>
+
+            <!-- 웹캠 섹션 -->
+            <section class="webcam-section">
+                <h2>2. 웹캠 테스트</h2>
+                <div class="webcam-container">
+                    <video id="webcam" autoplay playsinline></video>
+                    <canvas id="capture-canvas" style="display: none"></canvas>
+                </div>
+                <div id="class-labels" class="class-labels"></div>
+                <div class="webcam-controls">
+                    <button id="start-webcam-btn" disabled>웹캠 시작</button>
+                    <button id="start-test-btn" disabled>🔍 판독 시작 (0/10)</button>
+                </div>
+            </section>
+
+            <!-- 캡처된 이미지들 -->
+            <section class="captures-section">
+                <h2>3. 캡처된 이미지</h2>
+                <div id="captures-grid" class="captures-grid"></div>
+            </section>
+
+            <!-- 결과 섹션 -->
+            <section class="results-section" id="results-section" style="display: none">
+                <h2>4. 분석 결과</h2>
+
+                <!-- 개별 결과 평가 -->
+                <div id="evaluation-container" class="evaluation-container"></div>
+
+                <!-- 정확도 그래프 -->
+                <div class="chart-container">
+                    <canvas id="accuracy-chart"></canvas>
+                </div>
+
+                <!-- 결과 테이블 -->
+                <div class="table-container">
+                    <table id="results-table">
+                        <thead>
+                            <tr>
+                                <th>이미지</th>
+                                <th>예측 결과</th>
+                                <th>신뢰도</th>
+                                <th>평가</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+
+                <!-- 최종 정확도 -->
+                <div class="final-accuracy">
+                    <h3>최종 정확도: <span id="final-accuracy-value">-</span></h3>
+                    <p>평가된 이미지: <span id="evaluated-count">0</span>/10</p>
+                </div>
+            </section>
+        </div>
+
+        <script src="src/index.js"></script>
+        <script></script>
+    </body>
+</html>
