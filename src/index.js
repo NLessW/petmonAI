@@ -4,7 +4,8 @@ let model = null,
     captures = [],
     results = [],
     evaluations = [],
-    chart = null;
+    chart = null,
+    analyzedCaptures = [];
 let metadataFile = null,
     modelFile = null,
     weightsFile = null;
@@ -134,6 +135,7 @@ async function runAnalysis() {
     btn.disabled = true;
     results = [];
     evaluations = new Array(captures.length).fill(null);
+    analyzedCaptures = [...captures];
     for (let i = 0; i < captures.length; i++) results.push(await predictImage(captures[i]));
     displayResults();
     
@@ -194,7 +196,7 @@ function displayResults() {
         card.className = 'eval-card';
         card.innerHTML =
             '<img src="' +
-            captures[i] +
+            analyzedCaptures[i] +
             '"><div class="prediction">예측: ' +
             r.label +
             '</div><div class="confidence">신뢰도: ' +
@@ -241,7 +243,7 @@ function updateTable() {
         const row = document.createElement('tr');
         row.innerHTML =
             '<td><img src="' +
-            captures[i] +
+            analyzedCaptures[i] +
             '" class="table-img"></td><td>' +
             r.label +
             '</td><td>' +
