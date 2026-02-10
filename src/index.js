@@ -59,7 +59,7 @@ document.getElementById('load-model-btn').addEventListener('click', async () => 
 function displayClassLabels() {
     const container = document.getElementById('class-labels');
     container.innerHTML = '';
-    metadata.labels.forEach(label => {
+    metadata.labels.forEach((label) => {
         const item = document.createElement('span');
         item.className = 'class-label-item';
         item.textContent = label;
@@ -70,7 +70,7 @@ function displayClassLabels() {
 document.getElementById('start-webcam-btn').addEventListener('click', async () => {
     try {
         webcamStream = await navigator.mediaDevices.getUserMedia({
-            video: { width: 640, height: 480, facingMode: 'environment' },
+            video: { width: 640, height: 360, facingMode: 'environment' },
         });
         document.getElementById('webcam').srcObject = webcamStream;
         document.getElementById('start-test-btn').disabled = false;
@@ -90,11 +90,11 @@ document.getElementById('start-test-btn').addEventListener('click', async () => 
         runAnalysis();
         return;
     }
-    
+
     isCapturing = true;
     const btn = document.getElementById('start-test-btn');
     btn.textContent = '📷 촬영 중...';
-    
+
     captureInterval = setInterval(() => {
         if (captures.length >= 10) {
             clearInterval(captureInterval);
@@ -138,7 +138,7 @@ async function runAnalysis() {
     analyzedCaptures = [...captures];
     for (let i = 0; i < captures.length; i++) results.push(await predictImage(captures[i]));
     displayResults();
-    
+
     // 분석 완료 후 초기화하여 다시 테스트 가능하게
     captures = [];
     updateCapturesGrid();
@@ -207,7 +207,7 @@ function displayResults() {
             i +
             ',false)">❌ 틀림</button><button class="normal-btn" onclick="markResult(' +
             i +
-            ',\'normal\')">⚪ 해당없음</button></div>';
+            ",'normal')\">⚪ 해당없음</button></div>";
         evalContainer.appendChild(card);
     });
     updateTable();
@@ -235,32 +235,46 @@ function markResult(i, result) {
 function showClassSelector(i) {
     const cards = document.querySelectorAll('.eval-card');
     const card = cards[i];
-    
+
     // 이미 선택기가 있으면 제거
     const existing = card.querySelector('.class-selector');
     if (existing) existing.remove();
-    
+
     const r = results[i];
     let selectorHtml = '<div class="class-selector"><div class="selector-title">실제 클래스 선택:</div>';
-    
+
     metadata.labels.forEach((label, idx) => {
         const conf = (r.allPredictions[idx] * 100).toFixed(1);
-        selectorHtml += '<div class="class-option" onclick="selectActualClass(' + i + ',\'' + label + '\')">' +
-            '<span class="class-name">' + label + '</span>' +
-            '<div class="conf-bar-bg"><div class="conf-bar" style="width:' + conf + '%"></div></div>' +
-            '<span class="conf-value">' + conf + '%</span></div>';
+        selectorHtml +=
+            '<div class="class-option" onclick="selectActualClass(' +
+            i +
+            ",'" +
+            label +
+            '\')">' +
+            '<span class="class-name">' +
+            label +
+            '</span>' +
+            '<div class="conf-bar-bg"><div class="conf-bar" style="width:' +
+            conf +
+            '%"></div></div>' +
+            '<span class="conf-value">' +
+            conf +
+            '%</span></div>';
     });
-    
+
     // ok_normal 옵션도 추가
-    selectorHtml += '<div class="class-option" onclick="selectActualClass(' + i + ',\'ok_normal\')">' +
+    selectorHtml +=
+        '<div class="class-option" onclick="selectActualClass(' +
+        i +
+        ",'ok_normal')\">" +
         '<span class="class-name">ok_normal (해당없음)</span>' +
         '<div class="conf-bar-bg"><div class="conf-bar" style="width:0%"></div></div>' +
         '<span class="conf-value">-</span></div>';
-    
+
     selectorHtml += '</div>';
-    
+
     card.insertAdjacentHTML('beforeend', selectorHtml);
-    
+
     // 틀림 버튼 선택 표시
     const btns = card.querySelectorAll('.eval-buttons button');
     btns.forEach((b) => b.classList.remove('selected'));
@@ -276,7 +290,7 @@ function hideClassSelector(i) {
 function selectActualClass(i, actualClass) {
     evaluations[i] = { correct: false, actualClass: actualClass };
     hideClassSelector(i);
-    
+
     // 선택된 클래스 표시
     const cards = document.querySelectorAll('.eval-card');
     const card = cards[i];
@@ -286,7 +300,7 @@ function selectActualClass(i, actualClass) {
     } else {
         actualDisplay.textContent = '실제: ' + actualClass;
     }
-    
+
     updateTable();
     updateChart();
     updateFinalAccuracy();
@@ -358,13 +372,13 @@ function updateChart() {
         },
         options: {
             responsive: true,
-            plugins: { 
+            plugins: {
                 title: { display: true, text: '클래스별 정확도 및 예측 분포', color: '#ccc' },
-                legend: { labels: { color: '#ccc' } }
+                legend: { labels: { color: '#ccc' } },
             },
-            scales: { 
+            scales: {
                 y: { beginAtZero: true, max: 100, ticks: { color: '#ccc' }, grid: { color: '#444' } },
-                x: { ticks: { color: '#ccc' }, grid: { color: '#444' } }
+                x: { ticks: { color: '#ccc' }, grid: { color: '#444' } },
             },
         },
     });

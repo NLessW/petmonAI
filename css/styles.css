@@ -114,7 +114,7 @@ button:disabled {
     max-width: 640px;
     border-radius: 15px;
     background: #000;
-    aspect-ratio: 4/3;
+    aspect-ratio: 16/9;
 }
 .webcam-controls {
     display: flex;
