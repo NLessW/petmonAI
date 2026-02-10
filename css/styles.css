@@ -114,7 +114,7 @@ button:disabled {
     max-width: 640px;
     border-radius: 15px;
     background: #000;
-    aspect-ratio: 4/3;
+    aspect-ratio: 16/9;
 }
 .webcam-controls {
     display: flex;
@@ -129,7 +129,7 @@ button:disabled {
 }
 .capture-item {
     position: relative;
-    aspect-ratio: 1;
+    aspect-ratio: 16/9;
     border-radius: 10px;
     overflow: hidden;
     background: #333;
@@ -164,7 +164,7 @@ button:disabled {
 }
 .eval-card img {
     width: 100%;
-    height: 150px;
+    aspect-ratio: 16/9;
     object-fit: cover;
     border-radius: 10px;
     margin-bottom: 10px;
@@ -193,6 +193,9 @@ button:disabled {
 }
 .eval-buttons .wrong-btn {
     background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%);
+}
+.eval-buttons .normal-btn {
+    background: linear-gradient(135deg, #555 0%, #777 100%);
 }
 .eval-buttons button.selected {
     box-shadow: 0 0 0 3px #fff;
@@ -229,8 +232,8 @@ button:disabled {
     background: #333;
 }
 .table-img {
-    width: 60px;
-    height: 60px;
+    width: 80px;
+    aspect-ratio: 16/9;
     object-fit: cover;
     border-radius: 8px;
 }
@@ -240,6 +243,10 @@ button:disabled {
 }
 .eval-wrong {
     color: #eb3349;
+    font-weight: bold;
+}
+.eval-normal {
+    color: #888;
     font-weight: bold;
 }
 .final-accuracy {

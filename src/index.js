@@ -69,7 +69,7 @@ function displayClassLabels() {
 document.getElementById('start-webcam-btn').addEventListener('click', async () => {
     try {
         webcamStream = await navigator.mediaDevices.getUserMedia({
-            video: { width: 640, height: 480, facingMode: 'environment' },
+            video: { width: 1280, height: 720, facingMode: 'environment' },
         });
         document.getElementById('webcam').srcObject = webcamStream;
         document.getElementById('start-test-btn').disabled = false;
@@ -168,9 +168,11 @@ async function predictImage(imageData) {
             const predictions = await model.predict(tensor).data();
             tensor.dispose();
             const maxIndex = predictions.indexOf(Math.max(...predictions));
+            const confidence = predictions[maxIndex];
+            const label = confidence < 0.5 ? 'ok_normal' : metadata.labels[maxIndex];
             resolve({
-                label: metadata.labels[maxIndex],
-                confidence: predictions[maxIndex],
+                label: label,
+                confidence: confidence,
                 allPredictions: Array.from(predictions),
             });
         };
@@ -196,7 +198,9 @@ function displayResults() {
             i +
             ',true)">✅ 맞음</button><button class="wrong-btn" onclick="markResult(' +
             i +
-            ',false)">❌ 틀림</button></div>';
+            ',false)">❌ 틀림</button><button class="normal-btn" onclick="markResult(' +
+            i +
+            ',\'normal\')">⚪ 해당없음</button></div>';
         evalContainer.appendChild(card);
     });
     updateTable();
@@ -204,12 +208,14 @@ function displayResults() {
     document.getElementById('results-section').scrollIntoView({ behavior: 'smooth' });
 }
 
-function markResult(i, isCorrect) {
-    evaluations[i] = isCorrect;
+function markResult(i, result) {
+    evaluations[i] = result;
     const cards = document.querySelectorAll('.eval-card'),
         btns = cards[i].querySelectorAll('.eval-buttons button');
     btns.forEach((b) => b.classList.remove('selected'));
-    btns[isCorrect ? 0 : 1].classList.add('selected');
+    if (result === true) btns[0].classList.add('selected');
+    else if (result === false) btns[1].classList.add('selected');
+    else if (result === 'normal') btns[2].classList.add('selected');
     updateTable();
     updateChart();
     updateFinalAccuracy();
@@ -222,9 +228,11 @@ function updateTable() {
         const evalText =
             evaluations[i] === null
                 ? '-'
-                : evaluations[i]
+                : evaluations[i] === true
                   ? '<span class="eval-correct">✅ 맞음</span>'
-                  : '<span class="eval-wrong">❌ 틀림</span>';
+                  : evaluations[i] === false
+                    ? '<span class="eval-wrong">❌ 틀림</span>'
+                    : '<span class="eval-normal">⚪ ok_normal</span>';
         const row = document.createElement('tr');
         row.innerHTML =
             '<td><img src="' +
