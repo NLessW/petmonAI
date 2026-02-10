@@ -109,6 +109,8 @@ document.getElementById('start-test-btn').addEventListener('click', async () => 
 function capturePhoto() {
     const canvas = document.getElementById('capture-canvas'),
         webcam = document.getElementById('webcam');
+
+    // 웹캠 전체 화면을 캡처 (640x180)
     canvas.width = webcam.videoWidth;
     canvas.height = webcam.videoHeight;
     canvas.getContext('2d').drawImage(webcam, 0, 0);
@@ -170,7 +172,21 @@ async function predictImage(imageData) {
             const canvas = document.createElement('canvas');
             canvas.width = 224;
             canvas.height = 224;
-            canvas.getContext('2d').drawImage(img, 0, 0, 224, 224);
+            const ctx = canvas.getContext('2d');
+
+            // 검은 배경으로 채우기
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(0, 0, 224, 224);
+
+            // 비율을 유지하며 letterbox 처리
+            const scale = Math.min(224 / img.width, 224 / img.height);
+            const scaledWidth = img.width * scale;
+            const scaledHeight = img.height * scale;
+            const x = (224 - scaledWidth) / 2;
+            const y = (224 - scaledHeight) / 2;
+
+            ctx.drawImage(img, x, y, scaledWidth, scaledHeight);
+
             const tensor = tf.browser.fromPixels(canvas).toFloat().div(127.5).sub(1).expandDims();
             const predictions = await model.predict(tensor).data();
             tensor.dispose();
