@@ -136,9 +136,19 @@ async function runAnalysis() {
     btn.textContent = '분석 중...';
     btn.disabled = true;
     results = [];
-    evaluations = new Array(captures.length).fill(null);
-    analyzedCaptures = [...captures];
-    for (let i = 0; i < captures.length; i++) results.push(await predictImage(captures[i]));
+    analyzedCaptures = [];
+
+    // 각 캡처 이미지를 8등분하여 분석
+    for (let i = 0; i < captures.length; i++) {
+        const slices = await sliceImage(captures[i]);
+        for (let j = 0; j < slices.length; j++) {
+            const result = await predictImage(slices[j]);
+            results.push(result);
+            analyzedCaptures.push(slices[j]);
+        }
+    }
+
+    evaluations = new Array(results.length).fill(null);
     displayResults();
 
     // 분석 완료 후 초기화하여 다시 테스트 가능하게
@@ -146,6 +156,28 @@ async function runAnalysis() {
     updateCapturesGrid();
     btn.textContent = '🔍 판독 시작 (0/10)';
     btn.disabled = false;
+}
+
+async function sliceImage(imageData) {
+    return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+            const slices = [];
+            const sliceWidth = 80; // 가로 80px씩
+            const numSlices = 8;
+
+            for (let i = 0; i < numSlices; i++) {
+                const canvas = document.createElement('canvas');
+                canvas.width = sliceWidth;
+                canvas.height = img.height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, i * sliceWidth, 0, sliceWidth, img.height, 0, 0, sliceWidth, img.height);
+                slices.push(canvas.toDataURL('image/jpeg'));
+            }
+            resolve(slices);
+        };
+        img.src = imageData;
+    });
 }
 
 function updateCapturesGrid() {
@@ -221,9 +253,7 @@ function displayResults() {
             i +
             ',true)">✅ 맞음</button><button class="wrong-btn" onclick="markResult(' +
             i +
-            ',false)">❌ 틀림</button><button class="normal-btn" onclick="markResult(' +
-            i +
-            ",'normal')\">⚪ 해당없음</button></div>";
+            ',false)">❌ 틀림</button></div>';
         evalContainer.appendChild(card);
     });
     updateTable();
@@ -241,7 +271,6 @@ function markResult(i, result) {
         btns = cards[i].querySelectorAll('.eval-buttons button');
     btns.forEach((b) => b.classList.remove('selected'));
     if (result === true) btns[0].classList.add('selected');
-    else if (result === 'normal') btns[2].classList.add('selected');
     hideClassSelector(i);
     updateTable();
     updateChart();
@@ -277,15 +306,6 @@ function showClassSelector(i) {
             conf +
             '%</span></div>';
     });
-
-    // ok_normal 옵션도 추가
-    selectorHtml +=
-        '<div class="class-option" onclick="selectActualClass(' +
-        i +
-        ",'ok_normal')\">" +
-        '<span class="class-name">ok_normal (해당없음)</span>' +
-        '<div class="conf-bar-bg"><div class="conf-bar" style="width:0%"></div></div>' +
-        '<span class="conf-value">-</span></div>';
 
     selectorHtml += '</div>';
 
@@ -333,9 +353,7 @@ function updateTable() {
                 ? '-'
                 : evaluations[i] === true
                   ? '<span class="eval-correct">✅ 맞음</span>'
-                  : evaluations[i] === 'normal'
-                    ? '<span class="eval-normal">⚪ ok_normal</span>'
-                    : '<span class="eval-wrong">❌ 틀림 → ' + evaluations[i].actualClass + '</span>';
+                  : '<span class="eval-wrong">❌ 틀림 → ' + evaluations[i].actualClass + '</span>';
         const row = document.createElement('tr');
         row.innerHTML =
             '<td><img src="' +
