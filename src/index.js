@@ -192,9 +192,9 @@ function displayResults() {
             r.label +
             '</div><div class="confidence">신뢰도: ' +
             (r.confidence * 100).toFixed(1) +
-            '%</div><div class="eval-buttons"><button class="correct-btn" onclick="evaluate(' +
+            '%</div><div class="eval-buttons"><button class="correct-btn" onclick="markResult(' +
             i +
-            ',true)">✅ 맞음</button><button class="wrong-btn" onclick="evaluate(' +
+            ',true)">✅ 맞음</button><button class="wrong-btn" onclick="markResult(' +
             i +
             ',false)">❌ 틀림</button></div>';
         evalContainer.appendChild(card);
@@ -204,7 +204,7 @@ function displayResults() {
     document.getElementById('results-section').scrollIntoView({ behavior: 'smooth' });
 }
 
-function evaluate(i, isCorrect) {
+function markResult(i, isCorrect) {
     evaluations[i] = isCorrect;
     const cards = document.querySelectorAll('.eval-card'),
         btns = cards[i].querySelectorAll('.eval-buttons button');
@@ -299,4 +299,4 @@ function updateFinalAccuracy() {
 }
 
 window.removeCapture = removeCapture;
-window.evaluate = evaluate;
+window.markResult = markResult;
