@@ -4,8 +4,7 @@
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>PETMON AI Test</title>
-        <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
-        <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
         <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
         <link rel="stylesheet" href="css/styles.css" />
     </head>
@@ -18,19 +17,14 @@
                 <h2>1. 모델 파일 업로드</h2>
                 <div class="file-inputs">
                     <div class="file-input-group">
-                        <label for="metadata">metadata.json</label>
-                        <input type="file" id="metadata" accept=".json" />
-                        <span class="file-status" id="metadata-status">❌</span>
-                    </div>
-                    <div class="file-input-group">
-                        <label for="model">model.json</label>
-                        <input type="file" id="model" accept=".json" />
+                        <label for="model">my_model.onnx</label>
+                        <input type="file" id="model" accept=".onnx" />
                         <span class="file-status" id="model-status">❌</span>
                     </div>
                     <div class="file-input-group">
-                        <label for="weights">weights.bin</label>
-                        <input type="file" id="weights" accept=".bin" />
-                        <span class="file-status" id="weights-status">❌</span>
+                        <label for="classes">classes.txt</label>
+                        <input type="file" id="classes" accept=".txt" />
+                        <span class="file-status" id="classes-status">❌</span>
                     </div>
                 </div>
                 <button id="load-model-btn" disabled>모델 로드</button>
