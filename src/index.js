@@ -70,7 +70,7 @@ function displayClassLabels() {
 document.getElementById('start-webcam-btn').addEventListener('click', async () => {
     try {
         webcamStream = await navigator.mediaDevices.getUserMedia({
-            video: { width: 640, height: 180, facingMode: 'environment' },
+            video: { width: 480, height: 480, facingMode: 'environment' },
         });
         document.getElementById('webcam').srcObject = webcamStream;
         document.getElementById('start-test-btn').disabled = false;
@@ -110,7 +110,7 @@ function capturePhoto() {
     const canvas = document.getElementById('capture-canvas'),
         webcam = document.getElementById('webcam');
 
-    // 웹캠 전체 화면을 캡처 (640x180)
+    // 웹캠 전체 화면을 캡처 (정사각형)
     canvas.width = webcam.videoWidth;
     canvas.height = webcam.videoHeight;
     canvas.getContext('2d').drawImage(webcam, 0, 0);

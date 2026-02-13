@@ -111,10 +111,10 @@ button:disabled {
 }
 #webcam {
     width: 100%;
-    max-width: 640px;
+    max-width: 480px;
     border-radius: 15px;
     background: #000;
-    aspect-ratio: 32/9;
+    aspect-ratio: 1/1;
 }
 .webcam-controls {
     display: flex;
@@ -129,7 +129,7 @@ button:disabled {
 }
 .capture-item {
     position: relative;
-    aspect-ratio: 32/9;
+    aspect-ratio: 1/1;
     border-radius: 10px;
     overflow: hidden;
     background: #333;
@@ -165,7 +165,7 @@ button:disabled {
 .eval-card img {
     width: 100%;
     height: auto;
-    aspect-ratio: 32/9;
+    aspect-ratio: 1/1;
     object-fit: cover;
     border-radius: 10px;
     margin-bottom: 10px;
