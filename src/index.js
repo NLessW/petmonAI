@@ -70,7 +70,7 @@ function displayClassLabels() {
 document.getElementById('start-webcam-btn').addEventListener('click', async () => {
     try {
         webcamStream = await navigator.mediaDevices.getUserMedia({
-            video: { width: 480, height: 480, facingMode: 'environment' },
+            video: { width: 640, height: 640, facingMode: 'environment' },
         });
         document.getElementById('webcam').srcObject = webcamStream;
         document.getElementById('start-test-btn').disabled = false;
