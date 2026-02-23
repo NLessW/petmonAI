@@ -9,6 +9,133 @@ let model = null,
 let metadataFile = null,
     modelFile = null,
     weightsFile = null;
+let classesFile = null,
+    onnxModelFile = null;
+let modelType = 'teachable'; // 'teachable' or 'onnx'
+let onnxSession = null;
+let currentAspectRatio = '1:1';
+let currentResolution = 720;
+
+function getResolutionDimensions() {
+    const aspectRatio = currentAspectRatio;
+    const resolution = currentResolution;
+
+    let width, height;
+
+    if (aspectRatio === '1:1') {
+        width = height = resolution;
+    } else if (aspectRatio === '4:3') {
+        height = resolution;
+        width = Math.round((resolution * 4) / 3);
+    } else if (aspectRatio === '16:9') {
+        height = resolution;
+        width = Math.round((resolution * 16) / 9);
+    }
+
+    return { width, height };
+}
+
+function updateWebcamStyle() {
+    const webcam = document.getElementById('webcam');
+    const dims = getResolutionDimensions();
+    const ratio = dims.width / dims.height;
+    webcam.style.aspectRatio = ratio.toFixed(4);
+    webcam.style.maxWidth = dims.width + 'px';
+}
+
+function updateCaptureStyle() {
+    const dims = getResolutionDimensions();
+    const ratio = dims.width / dims.height;
+    const style = document.createElement('style');
+    style.id = 'dynamic-aspect-ratio';
+    const existingStyle = document.getElementById('dynamic-aspect-ratio');
+    if (existingStyle) existingStyle.remove();
+
+    style.textContent = `
+        .capture-item { aspect-ratio: ${ratio.toFixed(4)}; }
+        .eval-card img { aspect-ratio: ${ratio.toFixed(4)}; }
+    `;
+    document.head.appendChild(style);
+}
+
+document.getElementById('aspect-ratio').addEventListener('change', (e) => {
+    currentAspectRatio = e.target.value;
+    updateWebcamStyle();
+    updateCaptureStyle();
+
+    // 웹캠이 실행 중이면 재시작
+    if (webcamStream) {
+        restartWebcam();
+    }
+});
+
+document.getElementById('resolution').addEventListener('change', (e) => {
+    currentResolution = parseInt(e.target.value);
+    updateWebcamStyle();
+    updateCaptureStyle();
+
+    // 웹캠이 실행 중이면 재시작
+    if (webcamStream) {
+        restartWebcam();
+    }
+});
+
+async function restartWebcam() {
+    if (webcamStream) {
+        webcamStream.getTracks().forEach((track) => track.stop());
+        webcamStream = null;
+    }
+
+    try {
+        const dims = getResolutionDimensions();
+        webcamStream = await navigator.mediaDevices.getUserMedia({
+            video: { width: dims.width, height: dims.height, facingMode: 'environment' },
+        });
+        document.getElementById('webcam').srcObject = webcamStream;
+    } catch (error) {
+        alert('웹캠 재시작 오류: ' + error.message);
+        document.getElementById('start-webcam-btn').disabled = false;
+        document.getElementById('start-webcam-btn').textContent = '웹캠 시작';
+    }
+}
+
+// 초기 스타일 설정
+updateWebcamStyle();
+updateCaptureStyle();
+
+document.getElementById('model-type').addEventListener('change', (e) => {
+    modelType = e.target.value;
+    const teachableInputs = document.getElementById('teachable-inputs');
+    const onnxInputs = document.getElementById('onnx-inputs');
+
+    if (modelType === 'teachable') {
+        teachableInputs.style.display = 'flex';
+        onnxInputs.style.display = 'none';
+    } else {
+        teachableInputs.style.display = 'none';
+        onnxInputs.style.display = 'flex';
+    }
+
+    // 파일 초기화
+    metadataFile = null;
+    modelFile = null;
+    weightsFile = null;
+    classesFile = null;
+    onnxModelFile = null;
+    model = null;
+    onnxSession = null;
+    metadata = null;
+
+    // 상태 표시 초기화
+    document.getElementById('metadata-status').textContent = '❌';
+    document.getElementById('model-status').textContent = '❌';
+    document.getElementById('weights-status').textContent = '❌';
+    document.getElementById('classes-status').textContent = '❌';
+    document.getElementById('onnx-status').textContent = '❌';
+    document.getElementById('model-status-msg').textContent = '';
+
+    checkFilesReady();
+});
 
 document.getElementById('metadata').addEventListener('change', (e) => {
     metadataFile = e.target.files[0];
@@ -25,29 +152,34 @@ document.getElementById('weights').addEventListener('change', (e) => {
     document.getElementById('weights-status').textContent = weightsFile ? '✅' : '❌';
     checkFilesReady();
 });
+document.getElementById('classes').addEventListener('change', (e) => {
+    classesFile = e.target.files[0];
+    document.getElementById('classes-status').textContent = classesFile ? '✅' : '❌';
+    checkFilesReady();
+});
+document.getElementById('onnx-model').addEventListener('change', (e) => {
+    onnxModelFile = e.target.files[0];
+    document.getElementById('onnx-status').textContent = onnxModelFile ? '✅' : '❌';
+    checkFilesReady();
+});
 
 function checkFilesReady() {
-    document.getElementById('load-model-btn').disabled = !(metadataFile && modelFile && weightsFile);
+    if (modelType === 'teachable') {
+        document.getElementById('load-model-btn').disabled = !(metadataFile && modelFile && weightsFile);
+    } else {
+        document.getElementById('load-model-btn').disabled = !(classesFile && onnxModelFile);
+    }
 }
 
 document.getElementById('load-model-btn').addEventListener('click', async () => {
     const statusMsg = document.getElementById('model-status-msg');
     statusMsg.textContent = '모델 로딩 중...';
     try {
-        metadata = JSON.parse(await metadataFile.text());
-        const modelJson = JSON.parse(await modelFile.text());
-        const customIOHandler = {
-            load: async () => ({
-                modelTopology: modelJson.modelTopology,
-                weightSpecs: modelJson.weightsManifest[0].weights,
-                weightData: await weightsFile.arrayBuffer(),
-                format: modelJson.format,
-                generatedBy: modelJson.generatedBy,
-                convertedBy: modelJson.convertedBy,
-            }),
-        };
-        model = await tf.loadLayersModel(customIOHandler);
-        statusMsg.textContent = '✅ 모델 로드 완료! 클래스: ' + metadata.labels.join(', ');
+        if (modelType === 'teachable') {
+            await loadTeachableModel(statusMsg);
+        } else {
+            await loadOnnxModel(statusMsg);
+        }
         document.getElementById('start-webcam-btn').disabled = false;
         displayClassLabels();
     } catch (error) {
@@ -55,6 +187,39 @@ document.getElementById('load-model-btn').addEventListener('click', async () => 
         statusMsg.textContent = '❌ 모델 로드 실패: ' + error.message;
     }
 });
+
+async function loadTeachableModel(statusMsg) {
+    metadata = JSON.parse(await metadataFile.text());
+    const modelJson = JSON.parse(await modelFile.text());
+    const customIOHandler = {
+        load: async () => ({
+            modelTopology: modelJson.modelTopology,
+            weightSpecs: modelJson.weightsManifest[0].weights,
+            weightData: await weightsFile.arrayBuffer(),
+            format: modelJson.format,
+            generatedBy: modelJson.generatedBy,
+            convertedBy: modelJson.convertedBy,
+        }),
+    };
+    model = await tf.loadLayersModel(customIOHandler);
+    statusMsg.textContent = '✅ Teachable Machine 모델 로드 완료! 클래스: ' + metadata.labels.join(', ');
+}
+
+async function loadOnnxModel(statusMsg) {
+    // classes.txt 읽기
+    const classesText = await classesFile.text();
+    const labels = classesText
+        .trim()
+        .split('\n')
+        .map((l) => l.trim())
+        .filter((l) => l);
+    metadata = { labels: labels };
+
+    // ONNX 모델 로드
+    const arrayBuffer = await onnxModelFile.arrayBuffer();
+    onnxSession = await ort.InferenceSession.create(arrayBuffer);
+    statusMsg.textContent = '✅ ONNX 모델 로드 완료! 클래스: ' + labels.join(', ');
+}
 
 function displayClassLabels() {
     const container = document.getElementById('class-labels');
@@ -69,8 +234,9 @@ function displayClassLabels() {
 
 document.getElementById('start-webcam-btn').addEventListener('click', async () => {
     try {
+        const dims = getResolutionDimensions();
         webcamStream = await navigator.mediaDevices.getUserMedia({
-            video: { width: 640, height: 640, facingMode: 'environment' },
+            video: { width: dims.width, height: dims.height, facingMode: 'environment' },
         });
         document.getElementById('webcam').srcObject = webcamStream;
         document.getElementById('start-test-btn').disabled = false;
@@ -131,14 +297,21 @@ function updateTestButton() {
 }
 
 async function runAnalysis() {
-    if (!model || captures.length === 0) return;
+    if ((modelType === 'teachable' && !model) || (modelType === 'onnx' && !onnxSession) || captures.length === 0)
+        return;
     const btn = document.getElementById('start-test-btn');
     btn.textContent = '분석 중...';
     btn.disabled = true;
     results = [];
     evaluations = new Array(captures.length).fill(null);
     analyzedCaptures = [...captures];
-    for (let i = 0; i < captures.length; i++) results.push(await predictImage(captures[i]));
+    for (let i = 0; i < captures.length; i++) {
+        if (modelType === 'teachable') {
+            results.push(await predictImageTeachable(captures[i]));
+        } else {
+            results.push(await predictImageOnnx(captures[i]));
+        }
+    }
     displayResults();
 
     // 분석 완료 후 초기화하여 다시 테스트 가능하게
@@ -165,7 +338,7 @@ function removeCapture(i) {
     updateTestButton();
 }
 
-async function predictImage(imageData) {
+async function predictImageTeachable(imageData) {
     return new Promise((resolve) => {
         const img = new Image();
         img.onload = async () => {
@@ -201,6 +374,83 @@ async function predictImage(imageData) {
         };
         img.src = imageData;
     });
+}
+
+async function predictImageOnnx(imageData) {
+    return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = async () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = 224;
+            canvas.height = 224;
+            const ctx = canvas.getContext('2d');
+
+            // 검은 배경으로 채우기
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(0, 0, 224, 224);
+
+            // 비율을 유지하며 letterbox 처리
+            const scale = Math.min(224 / img.width, 224 / img.height);
+            const scaledWidth = img.width * scale;
+            const scaledHeight = img.height * scale;
+            const x = (224 - scaledWidth) / 2;
+            const y = (224 - scaledHeight) / 2;
+
+            ctx.drawImage(img, x, y, scaledWidth, scaledHeight);
+
+            // ImageData를 가져와서 ONNX 입력 형식으로 변환
+            const imageData = ctx.getImageData(0, 0, 224, 224);
+            const inputTensor = preprocessImageForOnnx(imageData);
+
+            // ONNX 추론 - 입력 이름을 동적으로 가져오기
+            const inputName = onnxSession.inputNames[0];
+            const feeds = {};
+            feeds[inputName] = inputTensor;
+
+            const results = await onnxSession.run(feeds);
+
+            // 출력 이름을 동적으로 가져오기
+            const outputName = onnxSession.outputNames[0];
+            const output = results[outputName];
+            // Softmax 적용
+            const expScores = Array.from(predictions).map((x) => Math.exp(x));
+            const sumExp = expScores.reduce((a, b) => a + b, 0);
+            const probabilities = expScores.map((x) => x / sumExp);
+
+            const maxIndex = probabilities.indexOf(Math.max(...probabilities));
+            const confidence = probabilities[maxIndex];
+            const label = confidence < 0.5 ? 'ok_normal' : metadata.labels[maxIndex];
+
+            resolve({
+                label: label,
+                confidence: confidence,
+                allPredictions: probabilities,
+            });
+        };
+        img.src = imageData;
+    });
+}
+
+function preprocessImageForOnnx(imageData) {
+    // ImageData를 [1, 3, 224, 224] 형식의 Float32Array로 변환
+    // 정규화: (pixel / 255.0 - mean) / std
+    // ImageNet 기준: mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+    const data = imageData.data;
+    const float32Data = new Float32Array(1 * 3 * 224 * 224);
+    const mean = [0.485, 0.456, 0.406];
+    const std = [0.229, 0.224, 0.225];
+
+    for (let i = 0; i < 224; i++) {
+        for (let j = 0; j < 224; j++) {
+            const idx = (i * 224 + j) * 4;
+            // R, G, B 채널 분리 및 정규화
+            float32Data[0 * 224 * 224 + i * 224 + j] = (data[idx] / 255.0 - mean[0]) / std[0];
+            float32Data[1 * 224 * 224 + i * 224 + j] = (data[idx + 1] / 255.0 - mean[1]) / std[1];
+            float32Data[2 * 224 * 224 + i * 224 + j] = (data[idx + 2] / 255.0 - mean[2]) / std[2];
+        }
+    }
+
+    return new ort.Tensor('float32', float32Data, [1, 3, 224, 224]);
 }
 
 function displayResults() {

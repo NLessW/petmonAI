@@ -6,6 +6,7 @@
         <title>PETMON AI Test</title>
         <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
         <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@latest/dist/ort.min.js"></script>
         <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
         <link rel="stylesheet" href="css/styles.css" />
     </head>
@@ -16,7 +17,14 @@
             <!-- 모델 업로드 섹션 -->
             <section class="upload-section">
                 <h2>1. 모델 파일 업로드</h2>
-                <div class="file-inputs">
+                <div class="model-type-selector">
+                    <label for="model-type">모델 타입 선택:</label>
+                    <select id="model-type">
+                        <option value="teachable">Teachable Machine (TensorFlow.js)</option>
+                        <option value="onnx">PyTorch/ONNX</option>
+                    </select>
+                </div>
+                <div class="file-inputs" id="teachable-inputs">
                     <div class="file-input-group">
                         <label for="metadata">metadata.json</label>
                         <input type="file" id="metadata" accept=".json" />
@@ -33,6 +41,18 @@
                         <span class="file-status" id="weights-status">❌</span>
                     </div>
                 </div>
+                <div class="file-inputs" id="onnx-inputs" style="display: none">
+                    <div class="file-input-group">
+                        <label for="classes">classes.txt</label>
+                        <input type="file" id="classes" accept=".txt" />
+                        <span class="file-status" id="classes-status">❌</span>
+                    </div>
+                    <div class="file-input-group">
+                        <label for="onnx-model">model.onnx</label>
+                        <input type="file" id="onnx-model" accept=".onnx" />
+                        <span class="file-status" id="onnx-status">❌</span>
+                    </div>
+                </div>
                 <button id="load-model-btn" disabled>모델 로드</button>
                 <p id="model-status-msg"></p>
             </section>
@@ -40,6 +60,24 @@
             <!-- 웹캠 섹션 -->
             <section class="webcam-section">
                 <h2>2. 웹캠 테스트</h2>
+                <div class="resolution-selector">
+                    <div class="selector-group">
+                        <label for="aspect-ratio">화면 비율:</label>
+                        <select id="aspect-ratio">
+                            <option value="1:1" selected>1:1 (정사각형)</option>
+                            <option value="4:3">4:3 (표준)</option>
+                            <option value="16:9">16:9 (와이드)</option>
+                        </select>
+                    </div>
+                    <div class="selector-group">
+                        <label for="resolution">해상도:</label>
+                        <select id="resolution">
+                            <option value="480">480p</option>
+                            <option value="720" selected>720p</option>
+                            <option value="1080">1080p</option>
+                        </select>
+                    </div>
+                </div>
                 <div class="webcam-container">
                     <video id="webcam" autoplay playsinline></video>
                     <canvas id="capture-canvas" style="display: none"></canvas>
