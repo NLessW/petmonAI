@@ -1,3 +1,21 @@
+// ONNX Runtime 로그 레벨 설정 (경고 숨기기)
+setTimeout(() => {
+    if (typeof ort !== 'undefined') {
+        ort.env.logLevel = 'error'; // 'verbose', 'info', 'warning', 'error', 'fatal'
+        console.log('ONNX Runtime 로그 레벨: error로 설정됨');
+    }
+}, 100);
+
+// CPU vendor 경고 메시지 필터링
+const originalWarn = console.warn;
+console.warn = function (...args) {
+    const message = args.join(' ');
+    if (message.includes('Unknown CPU vendor') || message.includes('cpuinfo_vendor')) {
+        return; // CPU vendor 경고 무시
+    }
+    originalWarn.apply(console, args);
+};
+
 let model = null,
     metadata = null,
     webcamStream = null,
@@ -231,6 +249,11 @@ async function loadOnnxModel(statusMsg) {
 
     // ONNX 모델 로드
     const arrayBuffer = await onnxModelFile.arrayBuffer();
+    
+    // 세션 옵션 (로그 레벨 설정)
+    const sessionOptions = {
+        logSeverityLevel: 3, // 0=Verbose, 1=Info, 2=Warning, 3=Error, 4=Fatal
+    };
 
     // 외부 데이터 파일이 있는 경우
     if (onnxDataFile) {
@@ -239,6 +262,7 @@ async function loadOnnxModel(statusMsg) {
 
         // 외부 데이터를 처리하기 위한 옵션 설정
         onnxSession = await ort.InferenceSession.create(arrayBuffer, {
+            ...sessionOptions,
             externalData: [
                 {
                     data: new Uint8Array(dataArrayBuffer),
@@ -247,7 +271,7 @@ async function loadOnnxModel(statusMsg) {
             ],
         });
     } else {
-        onnxSession = await ort.InferenceSession.create(arrayBuffer);
+        onnxSession = await ort.InferenceSession.create(arrayBuffer, sessionOptions);
     }
 
     // 모델의 입력 크기 감지 (안전하게 처리)
@@ -417,7 +441,10 @@ async function predictImageTeachable(imageData) {
             tensor.dispose();
             const maxIndex = predictions.indexOf(Math.max(...predictions));
             const confidence = predictions[maxIndex];
-            const label = metadata.labels[maxIndex];
+            const label = metadata.labels[maxIndex] || `Unknown-${maxIndex}`;
+            
+            console.log(`Teachable 예측 - Index: ${maxIndex}, Label: ${label}, Confidence: ${confidence.toFixed(3)}, Total Classes: ${metadata.labels.length}`);
+            
             resolve({
                 label: label,
                 confidence: confidence,
@@ -474,7 +501,11 @@ async function predictImageOnnx(imageData) {
 
                 const maxIndex = probabilities.indexOf(Math.max(...probabilities));
                 const confidence = probabilities[maxIndex];
-                const label = metadata.labels[maxIndex];
+                const label = metadata.labels[maxIndex] || `Unknown-${maxIndex}`;
+                
+                console.log(`ONNX 예측 - Index: ${maxIndex}, Label: ${label}, Confidence: ${confidence.toFixed(3)}`);
+                console.log(`출력 크기: ${probabilities.length}, 클래스 수: ${metadata.labels.length}`);
+                console.log(`모든 확률:`, probabilities.map((p, i) => `${metadata.labels[i] || 'Unknown'}: ${(p * 100).toFixed(1)}%`).join(', '));
 
                 resolve({
                     label: label,
@@ -579,22 +610,25 @@ function showClassSelector(i) {
     let selectorHtml = '<div class="class-selector"><div class="selector-title">실제 클래스 선택:</div>';
 
     metadata.labels.forEach((label, idx) => {
-        const conf = (r.allPredictions[idx] * 100).toFixed(1);
-        selectorHtml +=
-            '<div class="class-option" onclick="selectActualClass(' +
-            i +
-            ",'" +
-            label +
-            '\')">' +
-            '<span class="class-name">' +
-            label +
-            '</span>' +
-            '<div class="conf-bar-bg"><div class="conf-bar" style="width:' +
-            conf +
-            '%"></div></div>' +
-            '<span class="conf-value">' +
-            conf +
-            '%</span></div>';
+        // 예측 결과 배열 크기보다 작은 인덱스만 표시
+        if (idx < r.allPredictions.length) {
+            const conf = (r.allPredictions[idx] * 100).toFixed(1);
+            selectorHtml +=
+                '<div class="class-option" onclick="selectActualClass(' +
+                i +
+                ",'" +
+                label +
+                "')\">' +
+                '<span class="class-name">' +
+                label +
+                '</span>' +
+                '<div class="conf-bar-bg"><div class="conf-bar" style="width:' +
+                conf +
+                '%"></div></div>' +
+                '<span class="conf-value">' +
+                conf +
+                '%</span></div>';
+        }
     });
 
     selectorHtml += '</div>';
