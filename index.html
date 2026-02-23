@@ -52,6 +52,11 @@
                         <input type="file" id="onnx-model" accept=".onnx" />
                         <span class="file-status" id="onnx-status">❌</span>
                     </div>
+                    <div class="file-input-group">
+                        <label for="onnx-data">model.onnx.data (선택)</label>
+                        <input type="file" id="onnx-data" accept=".data" />
+                        <span class="file-status" id="onnx-data-status">⚪</span>
+                    </div>
                 </div>
                 <button id="load-model-btn" disabled>모델 로드</button>
                 <p id="model-status-msg"></p>

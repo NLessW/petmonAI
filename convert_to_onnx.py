@@ -71,11 +71,17 @@ def convert_to_onnx():
     
     print(f"✅ 모델이 성공적으로 변환되었습니다: {OUTPUT_PATH}")
     
-    # 변환 확인
+    # 외부 데이터 파일을 모델에 포함시키기 (웹 브라우저 호환성을 위해)
     import onnx
     onnx_model = onnx.load(OUTPUT_PATH)
+    
+    # 외부 데이터가 있으면 모델 내부로 포함
+    onnx.save(onnx_model, OUTPUT_PATH, save_as_external_data=False)
+    
+    # 변환 확인
     onnx.checker.check_model(onnx_model)
     print("✅ ONNX 모델 검증 완료")
+    print("💡 모델이 단일 파일로 저장되어 웹 브라우저에서 사용 가능합니다.")
 
 if __name__ == '__main__':
     convert_to_onnx()

@@ -11,6 +11,7 @@ let metadataFile = null,
     weightsFile = null;
 let classesFile = null,
     onnxModelFile = null;
+let onnxDataFile = null;
 let modelType = 'teachable'; // 'teachable' or 'onnx'
 let onnxSession = null;
 let currentAspectRatio = '1:1';
@@ -122,6 +123,7 @@ document.getElementById('model-type').addEventListener('change', (e) => {
     weightsFile = null;
     classesFile = null;
     onnxModelFile = null;
+    onnxDataFile = null;
     model = null;
     onnxSession = null;
     metadata = null;
@@ -132,6 +134,7 @@ document.getElementById('model-type').addEventListener('change', (e) => {
     document.getElementById('weights-status').textContent = '❌';
     document.getElementById('classes-status').textContent = '❌';
     document.getElementById('onnx-status').textContent = '❌';
+    document.getElementById('onnx-data-status').textContent = '⚪';
     document.getElementById('model-status-msg').textContent = '';
 
     checkFilesReady();
@@ -161,6 +164,10 @@ document.getElementById('onnx-model').addEventListener('change', (e) => {
     onnxModelFile = e.target.files[0];
     document.getElementById('onnx-status').textContent = onnxModelFile ? '✅' : '❌';
     checkFilesReady();
+});
+document.getElementById('onnx-data').addEventListener('change', (e) => {
+    onnxDataFile = e.target.files[0];
+    document.getElementById('onnx-data-status').textContent = onnxDataFile ? '✅' : '⚪';
 });
 
 function checkFilesReady() {
@@ -217,7 +224,25 @@ async function loadOnnxModel(statusMsg) {
 
     // ONNX 모델 로드
     const arrayBuffer = await onnxModelFile.arrayBuffer();
-    onnxSession = await ort.InferenceSession.create(arrayBuffer);
+
+    // 외부 데이터 파일이 있는 경우
+    if (onnxDataFile) {
+        statusMsg.textContent = 'ONNX 모델 + 외부 데이터 로딩 중...';
+        const dataArrayBuffer = await onnxDataFile.arrayBuffer();
+
+        // 외부 데이터를 처리하기 위한 옵션 설정
+        onnxSession = await ort.InferenceSession.create(arrayBuffer, {
+            externalData: [
+                {
+                    data: new Uint8Array(dataArrayBuffer),
+                    path: onnxDataFile.name,
+                },
+            ],
+        });
+    } else {
+        onnxSession = await ort.InferenceSession.create(arrayBuffer);
+    }
+
     statusMsg.textContent = '✅ ONNX 모델 로드 완료! 클래스: ' + labels.join(', ');
 }
 
