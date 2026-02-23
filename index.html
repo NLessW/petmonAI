@@ -57,6 +57,17 @@
                         <input type="file" id="onnx-data" accept=".data" />
                         <span class="file-status" id="onnx-data-status">⚪</span>
                     </div>
+                    <div class="file-input-group">
+                        <label for="onnx-input-size">입력 크기</label>
+                        <select id="onnx-input-size">
+                            <option value="224">224x224</option>
+                            <option value="320">320x320</option>
+                            <option value="416">416x416</option>
+                            <option value="512">512x512</option>
+                            <option value="640" selected>640x640</option>
+                            <option value="1280">1280x1280</option>
+                        </select>
+                    </div>
                 </div>
                 <button id="load-model-btn" disabled>모델 로드</button>
                 <p id="model-status-msg"></p>

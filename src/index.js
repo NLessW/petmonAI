@@ -14,9 +14,15 @@ let classesFile = null,
 let onnxDataFile = null;
 let modelType = 'teachable'; // 'teachable' or 'onnx'
 let onnxSession = null;
-let onnxInputSize = 224; // ONNX 모델의 입력 크기 (동적으로 설정됨)
+let onnxInputSize = 640; // ONNX 모델의 입력 크기 (동적으로 설정됨)
 let currentAspectRatio = '1:1';
 let currentResolution = 720;
+
+// ONNX 입력 크기 선택 처리
+document.getElementById('onnx-input-size')?.addEventListener('change', (e) => {
+    onnxInputSize = parseInt(e.target.value);
+    console.log(`ONNX 입력 크기 설정: ${onnxInputSize}x${onnxInputSize}`);
+});
 
 function getResolutionDimensions() {
     const aspectRatio = currentAspectRatio;
@@ -244,15 +250,24 @@ async function loadOnnxModel(statusMsg) {
         onnxSession = await ort.InferenceSession.create(arrayBuffer);
     }
 
-    // 모델의 입력 크기 감지
-    const inputNames = onnxSession.inputNames;
-    const inputInfo = onnxSession.inputsInfo[inputNames[0]];
-    const inputShape = inputInfo.dims;
-
-    // 입력 형식: [batch, channel, height, width] 가정
-    if (inputShape && inputShape.length >= 4) {
-        onnxInputSize = inputShape[2]; // height
-        console.log(`ONNX 모델 입력 크기 감지: ${onnxInputSize}x${inputShape[3]}`);
+    // 모델의 입력 크기 감지 (안전하게 처리)
+    try {
+        const inputNames = onnxSession.inputNames;
+        if (inputNames && inputNames.length > 0) {
+            const inputName = inputNames[0];
+            // ONNX Runtime Web에서 입력 shape 정보 가져오기
+            const inputMetadata = onnxSession._inputs || onnxSession.inputs;
+            if (inputMetadata && inputMetadata[inputName]) {
+                const inputShape = inputMetadata[inputName].dims || inputMetadata[inputName].shape;
+                // 입력 형식: [batch, channel, height, width] 가정
+                if (inputShape && inputShape.length >= 4) {
+                    onnxInputSize = inputShape[2]; // height
+                    console.log(`ONNX 모델 입력 크기 감지: ${onnxInputSize}x${inputShape[3]}`);
+                }
+            }
+        }
+    } catch (e) {
+        console.warn('입력 크기를 자동 감지할 수 없습니다. 기본값 사용:', onnxInputSize, e);
     }
 
     statusMsg.textContent = `✅ ONNX 모델 로드 완료! 입력: ${onnxInputSize}x${onnxInputSize}, 클래스: ${labels.join(', ')}`;
@@ -440,31 +455,45 @@ async function predictImageOnnx(imageData) {
             const imageData = ctx.getImageData(0, 0, size, size);
             const inputTensor = preprocessImageForOnnx(imageData);
 
-            // ONNX 추론 - 입력 이름을 동적으로 가져오기
-            const inputName = onnxSession.inputNames[0];
-            const feeds = {};
-            feeds[inputName] = inputTensor;
+            try {
+                // ONNX 추론 - 입력 이름을 동적으로 가져오기
+                const inputName = onnxSession.inputNames[0];
+                const feeds = {};
+                feeds[inputName] = inputTensor;
 
-            const results = await onnxSession.run(feeds);
+                const results = await onnxSession.run(feeds);
 
-            // 출력 이름을 동적으로 가져오기
-            const outputName = onnxSession.outputNames[0];
-            const output = results[outputName];
-            const predictions = output.data;
-            // Softmax 적용
-            const expScores = Array.from(predictions).map((x) => Math.exp(x));
-            const sumExp = expScores.reduce((a, b) => a + b, 0);
-            const probabilities = expScores.map((x) => x / sumExp);
+                // 출력 이름을 동적으로 가져오기
+                const outputName = onnxSession.outputNames[0];
+                const output = results[outputName];
+                const predictions = output.data;
+                // Softmax 적용
+                const expScores = Array.from(predictions).map((x) => Math.exp(x));
+                const sumExp = expScores.reduce((a, b) => a + b, 0);
+                const probabilities = expScores.map((x) => x / sumExp);
 
-            const maxIndex = probabilities.indexOf(Math.max(...probabilities));
-            const confidence = probabilities[maxIndex];
-            const label = confidence < 0.5 ? 'ok_normal' : metadata.labels[maxIndex];
+                const maxIndex = probabilities.indexOf(Math.max(...probabilities));
+                const confidence = probabilities[maxIndex];
+                const label = confidence < 0.5 ? 'ok_normal' : metadata.labels[maxIndex];
 
-            resolve({
-                label: label,
-                confidence: confidence,
-                allPredictions: probabilities,
-            });
+                resolve({
+                    label: label,
+                    confidence: confidence,
+                    allPredictions: probabilities,
+                });
+            } catch (error) {
+                // 오류 메시지에서 필요한 입력 크기를 파싱
+                const errorMsg = error.message || error.toString();
+                const match = errorMsg.match(/Expected: (\d+)/);
+                if (match) {
+                    const expectedSize = parseInt(match[1]);
+                    console.warn(`입력 크기 오류 감지. ${onnxInputSize} → ${expectedSize}로 변경 필요`);
+                    alert(
+                        `모델 입력 크기가 ${expectedSize}x${expectedSize}여야 합니다. 입력 크기를 ${expectedSize}로 변경하고 다시 시도하세요.`,
+                    );
+                }
+                throw error;
+            }
         };
         img.src = imageData;
     });
