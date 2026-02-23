@@ -496,22 +496,85 @@ async function predictImageOnnx(imageData) {
                 const outputName = onnxSession.outputNames[0];
                 const output = results[outputName];
                 const predictions = output.data;
-                // Softmax 적용
-                const expScores = Array.from(predictions).map((x) => Math.exp(x));
-                const sumExp = expScores.reduce((a, b) => a + b, 0);
-                const probabilities = expScores.map((x) => x / sumExp);
+
+                console.log(`원본 출력 형태:`, output.dims);
+                console.log(`원본 출력 크기:`, predictions.length);
+                console.log(`클래스 수:`, metadata.labels.length);
+
+                // YOLO 모델인지 확인 (출력이 [1, num_boxes, num_features] 또는 [1, num_features, num_boxes] 형태)
+                let probabilities;
+
+                if (output.dims.length === 3) {
+                    // YOLO 객체 감지 모델 (예: [1, 84, 8400] 또는 [1, 8400, 85])
+                    console.log('YOLO 객체 감지 모델 감지됨');
+                    const [batch, dim1, dim2] = output.dims;
+
+                    // YOLOv8 형식: [1, 84, 8400] - 클래스가 앞에
+                    // YOLOv5 형식: [1, 8400, 85] - 클래스가 뒤에
+                    let numClasses = metadata.labels.length;
+                    let isYoloV8 = dim1 === 4 + numClasses; // [1, 84, 8400]
+                    let isYoloV5 = dim2 === 5 + numClasses; // [1, 8400, 85]
+
+                    if (isYoloV8) {
+                        console.log('YOLOv8 형식 처리');
+                        // [1, 84, 8400] -> 각 8400개 박스에서 최고 신뢰도 찾기
+                        const numBoxes = dim2;
+                        const classScores = new Array(numClasses).fill(0);
+
+                        for (let box = 0; box < numBoxes; box++) {
+                            // 각 박스의 클래스 점수 (인덱스 4부터 시작)
+                            for (let cls = 0; cls < numClasses; cls++) {
+                                const idx = (4 + cls) * numBoxes + box;
+                                classScores[cls] = Math.max(classScores[cls], predictions[idx]);
+                            }
+                        }
+
+                        probabilities = classScores;
+                    } else if (isYoloV5) {
+                        console.log('YOLOv5 형식 처리');
+                        // [1, 8400, 85] -> 각 박스에서 최고 신뢰도 찾기
+                        const numBoxes = dim1;
+                        const numFeatures = dim2;
+                        const classScores = new Array(numClasses).fill(0);
+
+                        for (let box = 0; box < numBoxes; box++) {
+                            const objectness = predictions[box * numFeatures + 4];
+                            for (let cls = 0; cls < numClasses; cls++) {
+                                const score = predictions[box * numFeatures + 5 + cls] * objectness;
+                                classScores[cls] = Math.max(classScores[cls], score);
+                            }
+                        }
+
+                        probabilities = classScores;
+                    } else {
+                        console.warn('알 수 없는 YOLO 형식, 원본 데이터 사용');
+                        probabilities = Array.from(predictions).slice(0, numClasses);
+                    }
+
+                    // 정규화 (합이 1이 되도록)
+                    const sum = probabilities.reduce((a, b) => a + b, 0);
+                    if (sum > 0) {
+                        probabilities = probabilities.map((p) => p / sum);
+                    }
+                } else {
+                    // 일반 분류 모델
+                    console.log('일반 분류 모델로 처리');
+                    // Softmax 적용
+                    const expScores = Array.from(predictions)
+                        .slice(0, metadata.labels.length)
+                        .map((x) => Math.exp(x));
+                    const sumExp = expScores.reduce((a, b) => a + b, 0);
+                    probabilities = expScores.map((x) => x / sumExp);
+                }
 
                 const maxIndex = probabilities.indexOf(Math.max(...probabilities));
                 const confidence = probabilities[maxIndex];
                 const label = metadata.labels[maxIndex] || `Unknown-${maxIndex}`;
 
                 console.log(`ONNX 예측 - Index: ${maxIndex}, Label: ${label}, Confidence: ${confidence.toFixed(3)}`);
-                console.log(`출력 크기: ${probabilities.length}, 클래스 수: ${metadata.labels.length}`);
                 console.log(
                     `모든 확률:`,
-                    probabilities
-                        .map((p, i) => `${metadata.labels[i] || 'Unknown'}: ${(p * 100).toFixed(1)}%`)
-                        .join(', '),
+                    probabilities.map((p, i) => `${metadata.labels[i]}: ${(p * 100).toFixed(1)}%`).join(', '),
                 );
 
                 resolve({
