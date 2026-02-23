@@ -14,6 +14,7 @@ let classesFile = null,
 let onnxDataFile = null;
 let modelType = 'teachable'; // 'teachable' or 'onnx'
 let onnxSession = null;
+let onnxInputSize = 224; // ONNX 모델의 입력 크기 (동적으로 설정됨)
 let currentAspectRatio = '1:1';
 let currentResolution = 720;
 
@@ -243,7 +244,18 @@ async function loadOnnxModel(statusMsg) {
         onnxSession = await ort.InferenceSession.create(arrayBuffer);
     }
 
-    statusMsg.textContent = '✅ ONNX 모델 로드 완료! 클래스: ' + labels.join(', ');
+    // 모델의 입력 크기 감지
+    const inputNames = onnxSession.inputNames;
+    const inputInfo = onnxSession.inputsInfo[inputNames[0]];
+    const inputShape = inputInfo.dims;
+
+    // 입력 형식: [batch, channel, height, width] 가정
+    if (inputShape && inputShape.length >= 4) {
+        onnxInputSize = inputShape[2]; // height
+        console.log(`ONNX 모델 입력 크기 감지: ${onnxInputSize}x${inputShape[3]}`);
+    }
+
+    statusMsg.textContent = `✅ ONNX 모델 로드 완료! 입력: ${onnxInputSize}x${onnxInputSize}, 클래스: ${labels.join(', ')}`;
 }
 
 function displayClassLabels() {
@@ -405,26 +417,27 @@ async function predictImageOnnx(imageData) {
     return new Promise((resolve) => {
         const img = new Image();
         img.onload = async () => {
+            const size = onnxInputSize;
             const canvas = document.createElement('canvas');
-            canvas.width = 224;
-            canvas.height = 224;
+            canvas.width = size;
+            canvas.height = size;
             const ctx = canvas.getContext('2d');
 
             // 검은 배경으로 채우기
             ctx.fillStyle = '#000000';
-            ctx.fillRect(0, 0, 224, 224);
+            ctx.fillRect(0, 0, size, size);
 
             // 비율을 유지하며 letterbox 처리
-            const scale = Math.min(224 / img.width, 224 / img.height);
+            const scale = Math.min(size / img.width, size / img.height);
             const scaledWidth = img.width * scale;
             const scaledHeight = img.height * scale;
-            const x = (224 - scaledWidth) / 2;
-            const y = (224 - scaledHeight) / 2;
+            const x = (size - scaledWidth) / 2;
+            const y = (size - scaledHeight) / 2;
 
             ctx.drawImage(img, x, y, scaledWidth, scaledHeight);
 
             // ImageData를 가져와서 ONNX 입력 형식으로 변환
-            const imageData = ctx.getImageData(0, 0, 224, 224);
+            const imageData = ctx.getImageData(0, 0, size, size);
             const inputTensor = preprocessImageForOnnx(imageData);
 
             // ONNX 추론 - 입력 이름을 동적으로 가져오기
@@ -437,6 +450,7 @@ async function predictImageOnnx(imageData) {
             // 출력 이름을 동적으로 가져오기
             const outputName = onnxSession.outputNames[0];
             const output = results[outputName];
+            const predictions = output.data;
             // Softmax 적용
             const expScores = Array.from(predictions).map((x) => Math.exp(x));
             const sumExp = expScores.reduce((a, b) => a + b, 0);
@@ -457,25 +471,26 @@ async function predictImageOnnx(imageData) {
 }
 
 function preprocessImageForOnnx(imageData) {
-    // ImageData를 [1, 3, 224, 224] 형식의 Float32Array로 변환
+    // ImageData를 [1, 3, size, size] 형식의 Float32Array로 변환
     // 정규화: (pixel / 255.0 - mean) / std
     // ImageNet 기준: mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+    const size = onnxInputSize;
     const data = imageData.data;
-    const float32Data = new Float32Array(1 * 3 * 224 * 224);
+    const float32Data = new Float32Array(1 * 3 * size * size);
     const mean = [0.485, 0.456, 0.406];
     const std = [0.229, 0.224, 0.225];
 
-    for (let i = 0; i < 224; i++) {
-        for (let j = 0; j < 224; j++) {
-            const idx = (i * 224 + j) * 4;
+    for (let i = 0; i < size; i++) {
+        for (let j = 0; j < size; j++) {
+            const idx = (i * size + j) * 4;
             // R, G, B 채널 분리 및 정규화
-            float32Data[0 * 224 * 224 + i * 224 + j] = (data[idx] / 255.0 - mean[0]) / std[0];
-            float32Data[1 * 224 * 224 + i * 224 + j] = (data[idx + 1] / 255.0 - mean[1]) / std[1];
-            float32Data[2 * 224 * 224 + i * 224 + j] = (data[idx + 2] / 255.0 - mean[2]) / std[2];
+            float32Data[0 * size * size + i * size + j] = (data[idx] / 255.0 - mean[0]) / std[0];
+            float32Data[1 * size * size + i * size + j] = (data[idx + 1] / 255.0 - mean[1]) / std[1];
+            float32Data[2 * size * size + i * size + j] = (data[idx + 2] / 255.0 - mean[2]) / std[2];
         }
     }
 
-    return new ort.Tensor('float32', float32Data, [1, 3, 224, 224]);
+    return new ort.Tensor('float32', float32Data, [1, 3, size, size]);
 }
 
 function displayResults() {
