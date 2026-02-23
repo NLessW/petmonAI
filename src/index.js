@@ -417,7 +417,7 @@ async function predictImageTeachable(imageData) {
             tensor.dispose();
             const maxIndex = predictions.indexOf(Math.max(...predictions));
             const confidence = predictions[maxIndex];
-            const label = confidence < 0.5 ? 'ok_normal' : metadata.labels[maxIndex];
+            const label = metadata.labels[maxIndex];
             resolve({
                 label: label,
                 confidence: confidence,
@@ -474,7 +474,7 @@ async function predictImageOnnx(imageData) {
 
                 const maxIndex = probabilities.indexOf(Math.max(...probabilities));
                 const confidence = probabilities[maxIndex];
-                const label = confidence < 0.5 ? 'ok_normal' : metadata.labels[maxIndex];
+                const label = metadata.labels[maxIndex];
 
                 resolve({
                     label: label,
@@ -597,15 +597,6 @@ function showClassSelector(i) {
             '%</span></div>';
     });
 
-    // ok_normal 옵션도 추가
-    selectorHtml +=
-        '<div class="class-option" onclick="selectActualClass(' +
-        i +
-        ",'ok_normal')\">" +
-        '<span class="class-name">ok_normal (해당없음)</span>' +
-        '<div class="conf-bar-bg"><div class="conf-bar" style="width:0%"></div></div>' +
-        '<span class="conf-value">-</span></div>';
-
     selectorHtml += '</div>';
 
     card.insertAdjacentHTML('beforeend', selectorHtml);
@@ -653,7 +644,7 @@ function updateTable() {
                 : evaluations[i] === true
                   ? '<span class="eval-correct">✅ 맞음</span>'
                   : evaluations[i] === 'normal'
-                    ? '<span class="eval-normal">⚪ ok_normal</span>'
+                    ? '<span class="eval-normal">⚪ 해당없음</span>'
                     : '<span class="eval-wrong">❌ 틀림 → ' + evaluations[i].actualClass + '</span>';
         const row = document.createElement('tr');
         row.innerHTML =
@@ -674,20 +665,27 @@ function updateChart() {
     const ctx = document.getElementById('accuracy-chart').getContext('2d');
     const classStats = {};
     metadata.labels.forEach((l) => (classStats[l] = { total: 0, correct: 0 }));
+
     results.forEach((r, i) => {
+        // 레이블이 없으면 생성
+        if (!classStats[r.label]) {
+            classStats[r.label] = { total: 0, correct: 0 };
+        }
         classStats[r.label].total++;
         if (evaluations[i] === true) classStats[r.label].correct++;
     });
-    const labels = metadata.labels,
-        accuracyData = labels.map((l) =>
+
+    // 실제 사용된 레이블만 차트에 표시
+    const usedLabels = Object.keys(classStats).filter((l) => classStats[l].total > 0);
+    const accuracyData = usedLabels.map((l) =>
             classStats[l].total === 0 ? 0 : ((classStats[l].correct / classStats[l].total) * 100).toFixed(1),
         ),
-        countData = labels.map((l) => classStats[l].total);
+        countData = usedLabels.map((l) => classStats[l].total);
     if (chart) chart.destroy();
     chart = new Chart(ctx, {
         type: 'bar',
         data: {
-            labels,
+            labels: usedLabels,
             datasets: [
                 {
                     label: '정확도 (%)',
