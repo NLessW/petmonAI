@@ -249,7 +249,7 @@ async function loadOnnxModel(statusMsg) {
 
     // ONNX 모델 로드
     const arrayBuffer = await onnxModelFile.arrayBuffer();
-    
+
     // 세션 옵션 (로그 레벨 설정)
     const sessionOptions = {
         logSeverityLevel: 3, // 0=Verbose, 1=Info, 2=Warning, 3=Error, 4=Fatal
@@ -442,9 +442,11 @@ async function predictImageTeachable(imageData) {
             const maxIndex = predictions.indexOf(Math.max(...predictions));
             const confidence = predictions[maxIndex];
             const label = metadata.labels[maxIndex] || `Unknown-${maxIndex}`;
-            
-            console.log(`Teachable 예측 - Index: ${maxIndex}, Label: ${label}, Confidence: ${confidence.toFixed(3)}, Total Classes: ${metadata.labels.length}`);
-            
+
+            console.log(
+                `Teachable 예측 - Index: ${maxIndex}, Label: ${label}, Confidence: ${confidence.toFixed(3)}, Total Classes: ${metadata.labels.length}`,
+            );
+
             resolve({
                 label: label,
                 confidence: confidence,
@@ -502,10 +504,15 @@ async function predictImageOnnx(imageData) {
                 const maxIndex = probabilities.indexOf(Math.max(...probabilities));
                 const confidence = probabilities[maxIndex];
                 const label = metadata.labels[maxIndex] || `Unknown-${maxIndex}`;
-                
+
                 console.log(`ONNX 예측 - Index: ${maxIndex}, Label: ${label}, Confidence: ${confidence.toFixed(3)}`);
                 console.log(`출력 크기: ${probabilities.length}, 클래스 수: ${metadata.labels.length}`);
-                console.log(`모든 확률:`, probabilities.map((p, i) => `${metadata.labels[i] || 'Unknown'}: ${(p * 100).toFixed(1)}%`).join(', '));
+                console.log(
+                    `모든 확률:`,
+                    probabilities
+                        .map((p, i) => `${metadata.labels[i] || 'Unknown'}: ${(p * 100).toFixed(1)}%`)
+                        .join(', '),
+                );
 
                 resolve({
                     label: label,
@@ -618,7 +625,7 @@ function showClassSelector(i) {
                 i +
                 ",'" +
                 label +
-                "')\">' +
+                '\')">' +
                 '<span class="class-name">' +
                 label +
                 '</span>' +
