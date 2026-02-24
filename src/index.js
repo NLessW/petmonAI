@@ -34,7 +34,65 @@ let modelType = 'teachable'; // 'teachable' or 'onnx'
 let onnxSession = null;
 let onnxInputSize = 640; // ONNX 모델의 입력 크기 (동적으로 설정됨)
 let currentAspectRatio = '1:1';
-let currentResolution = 720;
+let currentResolution = '720p';
+let customWidth = null;
+let customHeight = null;
+
+// 화면 비율별 해상도 옵션
+const resolutionOptions = {
+    '1:1': [
+        { value: '416x416', label: '416x416' },
+        { value: '480p', label: '480p (480x480)' },
+        { value: '640x640', label: '640x640' },
+        { value: '720p', label: '720p (720x720)' },
+        { value: '800x800', label: '800x800' },
+        { value: '1080p', label: '1080p (1080x1080)' },
+        { value: '1440p', label: '1440p (1440x1440)' },
+        { value: '2160p', label: '2160p (2160x2160)' },
+    ],
+    '4:3': [
+        { value: '640x480', label: '640x480 (VGA)' },
+        { value: '960x720', label: '960x720' },
+        { value: '1440x1080', label: '1440x1080' },
+        { value: '1920x1440', label: '1920x1440' },
+    ],
+    '16:9': [
+        { value: '854x480', label: '854x480 (480p)' },
+        { value: '1280x720', label: '1280x720 (720p)' },
+        { value: '1920x1080', label: '1920x1080 (1080p)' },
+        { value: '2560x1440', label: '2560x1440 (1440p)' },
+        { value: '3840x2160', label: '3840x2160 (4K)' },
+    ],
+};
+
+function updateResolutionOptions() {
+    const resolutionSelect = document.getElementById('resolution');
+    const options = resolutionOptions[currentAspectRatio];
+
+    // 현재 선택된 값 저장
+    const currentValue = resolutionSelect.value;
+
+    // 옵션 제거
+    resolutionSelect.innerHTML = '';
+
+    // 새 옵션 추가
+    options.forEach((opt) => {
+        const option = document.createElement('option');
+        option.value = opt.value;
+        option.textContent = opt.label;
+        resolutionSelect.appendChild(option);
+    });
+
+    // 이전 값이 새로운 옵션에 있으면 유지, 없으면 두 번째 옵션 선택
+    const valueExists = options.some((opt) => opt.value === currentValue);
+    if (valueExists) {
+        resolutionSelect.value = currentValue;
+        currentResolution = currentValue;
+    } else {
+        resolutionSelect.value = options[1].value; // 두 번째 옵션 선택 (일반적으로 720p 급)
+        currentResolution = options[1].value;
+    }
+}
 
 // ONNX 입력 크기 선택 처리
 document.getElementById('onnx-input-size')?.addEventListener('change', (e) => {
@@ -42,20 +100,41 @@ document.getElementById('onnx-input-size')?.addEventListener('change', (e) => {
     console.log(`ONNX 입력 크기 설정: ${onnxInputSize}x${onnxInputSize}`);
 });
 
+function parseResolution(resValue) {
+    // "WxH" 형식인 경우 (예: "1920x1080")
+    if (resValue.includes('x')) {
+        const [w, h] = resValue.split('x').map(Number);
+        return { width: w, height: h, isCustom: true };
+    }
+    // "Np" 형식인 경우 (예: "720p")
+    if (resValue.endsWith('p')) {
+        const height = parseInt(resValue);
+        return { height, isCustom: false };
+    }
+    // 숫자만 있는 경우 (하위 호환성)
+    return { height: parseInt(resValue), isCustom: false };
+}
+
 function getResolutionDimensions() {
     const aspectRatio = currentAspectRatio;
-    const resolution = currentResolution;
+    const parsed = parseResolution(currentResolution);
 
     let width, height;
 
-    if (aspectRatio === '1:1') {
-        width = height = resolution;
-    } else if (aspectRatio === '4:3') {
-        height = resolution;
-        width = Math.round((resolution * 4) / 3);
-    } else if (aspectRatio === '16:9') {
-        height = resolution;
-        width = Math.round((resolution * 16) / 9);
+    // 커스텀 해상도(WxH 형식)인 경우 해당 값 사용
+    if (parsed.isCustom) {
+        width = parsed.width;
+        height = parsed.height;
+    } else {
+        // "p" 형식인 경우 화면 비율에 따라 width 계산
+        height = parsed.height;
+        if (aspectRatio === '1:1') {
+            width = height;
+        } else if (aspectRatio === '4:3') {
+            width = Math.round((height * 4) / 3);
+        } else if (aspectRatio === '16:9') {
+            width = Math.round((height * 16) / 9);
+        }
     }
 
     return { width, height };
@@ -86,6 +165,10 @@ function updateCaptureStyle() {
 
 document.getElementById('aspect-ratio').addEventListener('change', (e) => {
     currentAspectRatio = e.target.value;
+
+    // 해상도 옵션 업데이트
+    updateResolutionOptions();
+
     updateWebcamStyle();
     updateCaptureStyle();
 
@@ -96,7 +179,11 @@ document.getElementById('aspect-ratio').addEventListener('change', (e) => {
 });
 
 document.getElementById('resolution').addEventListener('change', (e) => {
-    currentResolution = parseInt(e.target.value);
+    currentResolution = e.target.value;
+    const parsed = parseResolution(currentResolution);
+
+    console.log(`해상도 변경: ${currentResolution}`, parsed);
+
     updateWebcamStyle();
     updateCaptureStyle();
 
@@ -125,7 +212,8 @@ async function restartWebcam() {
     }
 }
 
-// 초기 스타일 설정
+// 초기 설정
+updateResolutionOptions();
 updateWebcamStyle();
 updateCaptureStyle();
 
