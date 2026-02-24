@@ -527,8 +527,24 @@ async function predictImageTeachable(imageData) {
             const tensor = tf.browser.fromPixels(canvas).toFloat().div(127.5).sub(1).expandDims();
             const predictions = await model.predict(tensor).data();
             tensor.dispose();
-            const maxIndex = predictions.indexOf(Math.max(...predictions));
-            const confidence = predictions[maxIndex];
+
+            // no_object를 제외하고 가장 높은 신뢰도 찾기
+            let maxIndex = -1;
+            let confidence = 0;
+            for (let i = 0; i < predictions.length; i++) {
+                const label = metadata.labels[i];
+                if (label && label.toLowerCase() !== 'no_object' && predictions[i] > confidence) {
+                    maxIndex = i;
+                    confidence = predictions[i];
+                }
+            }
+
+            // no_object를 제외한 클래스가 없으면 원래 최고값 사용
+            if (maxIndex === -1) {
+                maxIndex = predictions.indexOf(Math.max(...predictions));
+                confidence = predictions[maxIndex];
+            }
+
             const label = metadata.labels[maxIndex] || `Unknown-${maxIndex}`;
 
             console.log(
@@ -655,8 +671,23 @@ async function predictImageOnnx(imageData) {
                     probabilities = expScores.map((x) => x / sumExp);
                 }
 
-                const maxIndex = probabilities.indexOf(Math.max(...probabilities));
-                const confidence = probabilities[maxIndex];
+                // no_object를 제외하고 가장 높은 신뢰도 찾기
+                let maxIndex = -1;
+                let confidence = 0;
+                for (let i = 0; i < probabilities.length; i++) {
+                    const label = metadata.labels[i];
+                    if (label && label.toLowerCase() !== 'no_object' && probabilities[i] > confidence) {
+                        maxIndex = i;
+                        confidence = probabilities[i];
+                    }
+                }
+
+                // no_object를 제외한 클래스가 없으면 원래 최고값 사용
+                if (maxIndex === -1) {
+                    maxIndex = probabilities.indexOf(Math.max(...probabilities));
+                    confidence = probabilities[maxIndex];
+                }
+
                 const label = metadata.labels[maxIndex] || `Unknown-${maxIndex}`;
 
                 console.log(`ONNX 예측 - Index: ${maxIndex}, Label: ${label}, Confidence: ${confidence.toFixed(3)}`);
