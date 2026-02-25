@@ -6,6 +6,28 @@ PyTorch 모델을 웹 브라우저에서 실행하는 AI 테스트 플랫폼입�
 
 ### 1. PyTorch 모델을 ONNX로 변환
 
+#### YOLOv8 모델 변환 (권장)
+
+YOLOv8으로 학습한 `best.pt` 파일을 변환하는 경우:
+
+```bash
+# Ultralytics 설치
+pip install ultralytics
+
+# ai 폴더에 best.pt 파일 배치 후 실행
+python convert_yolov8_to_onnx.py
+```
+
+✨ **변환 스크립트가 자동으로 생성하는 파일:**
+
+- `ai/best.onnx` - ONNX 모델 파일
+- `ai/classes.txt` - 클래스 이름 목록 (**자동 생성 - 별도 준비 불필요!**)
+
+💡 **참고**: YOLOv8 학습 결과물은 `best.pt`와 `last.pt` 2개만 나오지만,  
+변환 스크립트가 모델에서 클래스 정보를 추출해서 `classes.txt`를 자동으로 만들어줍니다.
+
+#### 일반 PyTorch 모델 변환
+
 ```bash
 pip install torch onnx
 python convert_to_onnx.py
@@ -18,9 +40,11 @@ python convert_to_onnx.py
 - `MODEL_PATH`: .pth 파일 경로
 - `OUTPUT_PATH`: 출력할 .onnx 파일 경로
 
-### 2. 클래스 이름 파일 준비
+### 2. 클래스 이름 파일 준비 (일반 PyTorch 모델만 해당)
 
-`ai/classes.txt` 파일에 클래스 이름을 한 줄에 하나씩 작성:
+**YOLOv8을 사용하는 경우 이 단계는 건너뛰세요!** (자동으로 생성됨)
+
+일반 PyTorch 모델을 사용하는 경우, `ai/classes.txt` 파일에 클래스 이름을 한 줄에 하나씩 작성:
 
 ```
 ok_normal
@@ -38,32 +62,42 @@ defect_scratch
 ### 4. 웹 사이트에서 사용
 
 1. **모델 파일 업로드**
-    - `my_model.onnx` 선택
+    - 모델 타입: `PyTorch/ONNX` 선택
     - `classes.txt` 선택
+    - `best.onnx` (또는 `my_model.onnx`) 선택
+    - ONNX 입력 크기: YOLOv8인 경우 `640x640` 선택 (일반 모델은 `224x224`)
     - "모델 로드" 버튼 클릭
 
-2. **웹캠 테스트**
+2. **웹캠 설정**
+    - 화면 비율 선택 (1:1, 4:3, 16:9)
+    - 해상도 선택 (예: 1920x1080)
+
+3. **웹캠 테스트**
     - "웹캠 시작" 클릭
     - "판독 시작" 클릭하여 이미지 10장 자동 촬영
 
-3. **결과 분석**
-    - 각 이미지가 8개 영역으로 분할되어 분석됨
+4. **결과 분석**
+    - 각 이미지가 자동으로 분석됨
     - 예측 결과를 평가하고 정확도 확인
+    - `no_object` 클래스는 자동으로 무시됨
 
 ## 📁 파일 구조
 
 ```
 ai_test/
-├── index.html              # 메인 HTML
+├── index.html                    # 메인 HTML
 ├── css/
-│   └── styles.css          # 스타일시트
+│   └── styles.css                # 스타일시트
 ├── src/
-│   └── index.js            # ONNX Runtime Web 로직
+│   └── index.js                  # ONNX Runtime Web 로직
 ├── ai/
-│   ├── my_model.pth        # 원본 PyTorch 모델
-│   ├── my_model.onnx       # 변환된 ONNX 모델
-│   └── classes.txt         # 클래스 이름 목록
-└── convert_to_onnx.py      # 변환 스크립트
+│   ├── best.pt                   # 원본 YOLOv8 모델
+│   ├── best.onnx                 # 변환된 ONNX 모델
+│   ├── my_model.pth              # 또는 일반 PyTorch 모델
+│   └── classes.txt               # 클래스 이름 목록
+├── convert_yolov8_to_onnx.py     # YOLOv8 변환 스크립트
+├── convert_to_onnx.py            # 일반 PyTorch 변환 스크립트
+└── merge_onnx_data.py            # ONNX 데이터 병합 스크립트
 ```
 
 ## 🔧 기술 스택
@@ -73,6 +107,14 @@ ai_test/
 - **Vanilla JavaScript**: 순수 자바스크립트
 
 ## 📝 모델 요구사항
+
+### YOLOv8 모델
+
+- **입력**: `[1, 3, 640, 640]` (배치, RGB, 높이, 너비)
+- **전처리**: 0-255 픽셀값을 0-1로 정규화
+- **출력**: YOLOv8 표준 출력 형식
+
+### 일반 분류 모델
 
 - **입력**: `[1, 3, 224, 224]` (배치, RGB, 높이, 너비)
 - **전처리**: ImageNet 정규화 (mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])

@@ -1,10 +1,5 @@
-ok_normal
-defect_crack
-defect_scratch
-defect_dent
-defect_rust
-defect_stain
-defect_broken
-defect_missing
-defect_color
-defect_deformation
+belt
+cap
+label
+no_object
+ok

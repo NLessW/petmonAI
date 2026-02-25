@@ -156,6 +156,28 @@ button:disabled {
     border-radius: 20px;
     font-weight: bold;
     border: 1px solid #0f0;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    user-select: none;
+}
+
+.class-label-item:hover {
+    background: #0f0;
+    color: #000;
+    transform: scale(1.05);
+}
+
+.class-label-item.disabled {
+    background: #222;
+    color: #666;
+    border-color: #444;
+    text-decoration: line-through;
+    opacity: 0.5;
+}
+
+.class-label-item.disabled:hover {
+    background: #333;
+    color: #888;
 }
 .resolution-selector {
     display: flex;

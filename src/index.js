@@ -37,6 +37,7 @@ let currentAspectRatio = '1:1';
 let currentResolution = '720p';
 let customWidth = null;
 let customHeight = null;
+let disabledClasses = new Set(); // 비활성화된 클래스 관리
 
 // 화면 비율별 해상도 옵션
 const resolutionOptions = {
@@ -301,6 +302,7 @@ document.getElementById('load-model-btn').addEventListener('click', async () => 
             await loadOnnxModel(statusMsg);
         }
         document.getElementById('start-webcam-btn').disabled = false;
+        disabledClasses.clear(); // 비활성화 클래스 초기화
         displayClassLabels();
     } catch (error) {
         console.error(error);
@@ -392,6 +394,21 @@ function displayClassLabels() {
         const item = document.createElement('span');
         item.className = 'class-label-item';
         item.textContent = label;
+        item.dataset.class = label;
+
+        // 클릭 이벤트: 클래스 활성화/비활성화
+        item.addEventListener('click', () => {
+            if (disabledClasses.has(label)) {
+                disabledClasses.delete(label);
+                item.classList.remove('disabled');
+                console.log(`✅ 클래스 활성화: ${label}`);
+            } else {
+                disabledClasses.add(label);
+                item.classList.add('disabled');
+                console.log(`❌ 클래스 비활성화: ${label}`);
+            }
+        });
+
         container.appendChild(item);
     });
 }
@@ -528,18 +545,18 @@ async function predictImageTeachable(imageData) {
             const predictions = await model.predict(tensor).data();
             tensor.dispose();
 
-            // no_object를 제외하고 가장 높은 신뢰도 찾기
+            // 비활성화된 클래스를 제외하고 가장 높은 신뢰도 찾기
             let maxIndex = -1;
             let confidence = 0;
             for (let i = 0; i < predictions.length; i++) {
                 const label = metadata.labels[i];
-                if (label && label.toLowerCase() !== 'no_object' && predictions[i] > confidence) {
+                if (label && !disabledClasses.has(label) && predictions[i] > confidence) {
                     maxIndex = i;
                     confidence = predictions[i];
                 }
             }
 
-            // no_object를 제외한 클래스가 없으면 원래 최고값 사용
+            // 비활성화되지 않은 클래스가 없으면 원래 최고값 사용
             if (maxIndex === -1) {
                 maxIndex = predictions.indexOf(Math.max(...predictions));
                 confidence = predictions[maxIndex];
@@ -671,18 +688,18 @@ async function predictImageOnnx(imageData) {
                     probabilities = expScores.map((x) => x / sumExp);
                 }
 
-                // no_object를 제외하고 가장 높은 신뢰도 찾기
+                // 비활성화된 클래스를 제외하고 가장 높은 신뢰도 찾기
                 let maxIndex = -1;
                 let confidence = 0;
                 for (let i = 0; i < probabilities.length; i++) {
                     const label = metadata.labels[i];
-                    if (label && label.toLowerCase() !== 'no_object' && probabilities[i] > confidence) {
+                    if (label && !disabledClasses.has(label) && probabilities[i] > confidence) {
                         maxIndex = i;
                         confidence = probabilities[i];
                     }
                 }
 
-                // no_object를 제외한 클래스가 없으면 원래 최고값 사용
+                // 비활성화되지 않은 클래스가 없으면 원래 최고값 사용
                 if (maxIndex === -1) {
                     maxIndex = probabilities.indexOf(Math.max(...probabilities));
                     confidence = probabilities[maxIndex];
