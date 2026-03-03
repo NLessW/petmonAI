@@ -562,10 +562,10 @@ async function predictImageTeachable(imageData) {
                 confidence = predictions[maxIndex];
             }
 
-            const label = metadata.labels[maxIndex] || `Unknown-${maxIndex}`;
+            let label = metadata.labels[maxIndex] || `Unknown-${maxIndex}`;
 
-            // ok_normal은 60% 이상일 때만 허용
-            if (label === 'ok_normal' && confidence < 0.6) {
+            // ok_normal은 50% 이상일 때만 허용
+            if (label === 'ok_normal' && confidence < 0.5) {
                 // ok_normal이 아닌 다음으로 높은 신뢰도의 클래스 찾기
                 let secondMaxIndex = -1;
                 let secondConfidence = 0;
@@ -584,9 +584,9 @@ async function predictImageTeachable(imageData) {
                 if (secondMaxIndex !== -1) {
                     maxIndex = secondMaxIndex;
                     confidence = secondConfidence;
-                    const newLabel = metadata.labels[maxIndex] || `Unknown-${maxIndex}`;
+                    label = metadata.labels[maxIndex] || `Unknown-${maxIndex}`;
                     console.log(
-                        `ok_normal 신뢰도 ${(predictions[metadata.labels.indexOf('ok_normal')] * 100).toFixed(1)}%로 60% 미만. ${newLabel}로 변경`,
+                        `ok_normal 신뢰도 ${(predictions[metadata.labels.indexOf('ok_normal')] * 100).toFixed(1)}%로 50% 미만. ${label}로 변경`,
                     );
                 }
             }
@@ -732,10 +732,10 @@ async function predictImageOnnx(imageData) {
                     confidence = probabilities[maxIndex];
                 }
 
-                const label = metadata.labels[maxIndex] || `Unknown-${maxIndex}`;
+                let label = metadata.labels[maxIndex] || `Unknown-${maxIndex}`;
 
-                // ok_normal은 60% 이상일 때만 허용
-                if (label === 'ok_normal' && confidence < 0.6) {
+                // ok_normal은 50% 이상일 때만 허용
+                if (label === 'ok_normal' && confidence < 0.5) {
                     // ok_normal이 아닌 다음으로 높은 신뢰도의 클래스 찾기
                     let secondMaxIndex = -1;
                     let secondConfidence = 0;
@@ -754,9 +754,9 @@ async function predictImageOnnx(imageData) {
                     if (secondMaxIndex !== -1) {
                         maxIndex = secondMaxIndex;
                         confidence = secondConfidence;
-                        const newLabel = metadata.labels[maxIndex] || `Unknown-${maxIndex}`;
+                        label = metadata.labels[maxIndex] || `Unknown-${maxIndex}`;
                         console.log(
-                            `ok_normal 신뢰도 ${(probabilities[metadata.labels.indexOf('ok_normal')] * 100).toFixed(1)}%로 60% 미만. ${newLabel}로 변경`,
+                            `ok_normal 신뢰도 ${(probabilities[metadata.labels.indexOf('ok_normal')] * 100).toFixed(1)}%로 50% 미만. ${label}로 변경`,
                         );
                     }
                 }
