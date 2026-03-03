@@ -28,19 +28,16 @@ print("\n4. ONNX 변환 중... (잠시만 기다려주세요)")
 output_path = 'ai/best.onnx'
 
 try:
+    # 경고를 보면 opset 18을 사용하라고 권장하므로 18 사용
     torch.onnx.export(
         pytorch_model,
         dummy_input,
         output_path,
         export_params=True,
-        opset_version=11,
+        opset_version=18,  # 18로 변경하여 버전 변환 문제 해결
         do_constant_folding=True,
         input_names=['images'],
         output_names=['output'],
-        dynamic_axes={
-            'images': {0: 'batch'},
-            'output': {0: 'batch'}
-        }
     )
     
     if os.path.exists(output_path):
