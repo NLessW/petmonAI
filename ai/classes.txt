@@ -1,5 +1,4 @@
 belt
 cap
-label
 no_object
 ok_normal

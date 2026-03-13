@@ -562,34 +562,7 @@ async function predictImageTeachable(imageData) {
                 confidence = predictions[maxIndex];
             }
 
-            let label = metadata.labels[maxIndex] || `Unknown-${maxIndex}`;
-
-            // ok_normal은 50% 이상일 때만 허용
-            if (label === 'ok_normal' && confidence < 0.5) {
-                // ok_normal이 아닌 다음으로 높은 신뢰도의 클래스 찾기
-                let secondMaxIndex = -1;
-                let secondConfidence = 0;
-                for (let i = 0; i < predictions.length; i++) {
-                    const tempLabel = metadata.labels[i];
-                    if (
-                        tempLabel &&
-                        tempLabel !== 'ok_normal' &&
-                        !disabledClasses.has(tempLabel) &&
-                        predictions[i] > secondConfidence
-                    ) {
-                        secondMaxIndex = i;
-                        secondConfidence = predictions[i];
-                    }
-                }
-                if (secondMaxIndex !== -1) {
-                    maxIndex = secondMaxIndex;
-                    confidence = secondConfidence;
-                    label = metadata.labels[maxIndex] || `Unknown-${maxIndex}`;
-                    console.log(
-                        `ok_normal 신뢰도 ${(predictions[metadata.labels.indexOf('ok_normal')] * 100).toFixed(1)}%로 50% 미만. ${label}로 변경`,
-                    );
-                }
-            }
+            const label = metadata.labels[maxIndex] || `Unknown-${maxIndex}`;
 
             console.log(
                 `Teachable 예측 - Index: ${maxIndex}, Label: ${label}, Confidence: ${confidence.toFixed(3)}, Total Classes: ${metadata.labels.length}`,
@@ -732,34 +705,7 @@ async function predictImageOnnx(imageData) {
                     confidence = probabilities[maxIndex];
                 }
 
-                let label = metadata.labels[maxIndex] || `Unknown-${maxIndex}`;
-
-                // ok_normal은 50% 이상일 때만 허용
-                if (label === 'ok_normal' && confidence < 0.5) {
-                    // ok_normal이 아닌 다음으로 높은 신뢰도의 클래스 찾기
-                    let secondMaxIndex = -1;
-                    let secondConfidence = 0;
-                    for (let i = 0; i < probabilities.length; i++) {
-                        const tempLabel = metadata.labels[i];
-                        if (
-                            tempLabel &&
-                            tempLabel !== 'ok_normal' &&
-                            !disabledClasses.has(tempLabel) &&
-                            probabilities[i] > secondConfidence
-                        ) {
-                            secondMaxIndex = i;
-                            secondConfidence = probabilities[i];
-                        }
-                    }
-                    if (secondMaxIndex !== -1) {
-                        maxIndex = secondMaxIndex;
-                        confidence = secondConfidence;
-                        label = metadata.labels[maxIndex] || `Unknown-${maxIndex}`;
-                        console.log(
-                            `ok_normal 신뢰도 ${(probabilities[metadata.labels.indexOf('ok_normal')] * 100).toFixed(1)}%로 50% 미만. ${label}로 변경`,
-                        );
-                    }
-                }
+                const label = metadata.labels[maxIndex] || `Unknown-${maxIndex}`;
 
                 console.log(`ONNX 예측 - Index: ${maxIndex}, Label: ${label}, Confidence: ${confidence.toFixed(3)}`);
                 console.log(
