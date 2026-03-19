@@ -656,7 +656,7 @@ async function predictImageOnnx(imageData) {
 
                 if (output.dims.length === 3) {
                     // YOLO 객체 감지 모델 (예: [1, 84, 8400] 또는 [1, 8400, 85])
-                    console.log('YOLO 객체 감지 모델 감지됨');
+                    console.log('YOLO 객체 감지 모델 감지됨 - 순수 판독 모드');
                     const [batch, dim1, dim2] = output.dims;
 
                     // YOLOv8 형식: [1, 84, 8400] - 클래스가 앞에
@@ -666,7 +666,7 @@ async function predictImageOnnx(imageData) {
                     let isYoloV5 = dim2 === 5 + numClasses; // [1, 8400, 85]
 
                     if (isYoloV8) {
-                        console.log('YOLOv8 형식 처리');
+                        console.log('YOLOv8 형식 처리 (정규화 없음)');
                         // [1, 84, 8400] -> 각 8400개 박스에서 최고 신뢰도 찾기
                         const numBoxes = dim2;
                         const classScores = new Array(numClasses).fill(0);
@@ -681,7 +681,7 @@ async function predictImageOnnx(imageData) {
 
                         probabilities = classScores;
                     } else if (isYoloV5) {
-                        console.log('YOLOv5 형식 처리');
+                        console.log('YOLOv5 형식 처리 (정규화 없음)');
                         // [1, 8400, 85] -> 각 박스에서 최고 신뢰도 찾기
                         const numBoxes = dim1;
                         const numFeatures = dim2;
@@ -701,20 +701,15 @@ async function predictImageOnnx(imageData) {
                         probabilities = Array.from(predictions).slice(0, numClasses);
                     }
 
-                    // 정규화 (합이 1이 되도록)
-                    const sum = probabilities.reduce((a, b) => a + b, 0);
-                    if (sum > 0) {
-                        probabilities = probabilities.map((p) => p / sum);
-                    }
+                    // 정규화 제거 - 순수 판독: 원본 확률값 그대로 사용
+                    console.log('순수 판독 모드: 정규화 없이 원본 확률 사용');
                 } else {
                     // 일반 분류 모델
-                    console.log('일반 분류 모델로 처리');
-                    // Softmax 적용
-                    const expScores = Array.from(predictions)
+                    console.log('일반 분류 모델로 처리 - 순수 판독 모드 (Sigmoid 적용)');
+                    // Softmax 대신 Sigmoid 적용 - 각 클래스를 독립적으로 평가
+                    probabilities = Array.from(predictions)
                         .slice(0, metadata.labels.length)
-                        .map((x) => Math.exp(x));
-                    const sumExp = expScores.reduce((a, b) => a + b, 0);
-                    probabilities = expScores.map((x) => x / sumExp);
+                        .map((x) => 1 / (1 + Math.exp(-x))); // Sigmoid 함수
                 }
 
                 // 비활성화된 클래스를 제외하고 가장 높은 신뢰도 찾기
