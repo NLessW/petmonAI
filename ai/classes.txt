@@ -1,2 +1,4 @@
 belt
 cap
+ok_normal
+label
