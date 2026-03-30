@@ -21,7 +21,7 @@ pytorch_model.eval()
 
 # 더미 입력 생성
 print("\n3. 더미 입력 생성...")
-dummy_input = torch.randn(1, 3, 640, 640)
+dummy_input = torch.randn(1, 3, 1280, 1280)
 
 # ONNX로 변환
 print("\n4. ONNX 변환 중... (잠시만 기다려주세요)")

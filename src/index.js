@@ -30,9 +30,14 @@ let metadataFile = null,
 let classesFile = null,
     onnxModelFile = null;
 let onnxDataFile = null;
-let modelType = 'teachable'; // 'teachable' or 'onnx'
+let modelType = 'teachable'; // 'teachable' or 'onnx' or 'ultralytics'
 let onnxSession = null;
 let onnxInputSize = 640; // ONNX 모델의 입력 크기 (동적으로 설정됨)
+let ultralyticsUrl = null,
+    ultralyticsApiKey = null,
+    ultralyticsConf = 0.25,
+    ultralyticsIou = 0.7,
+    ultralyticsImgsz = 640;
 let currentAspectRatio = '1:1';
 let currentResolution = '720p';
 let customWidth = null;
@@ -222,13 +227,20 @@ document.getElementById('model-type').addEventListener('change', (e) => {
     modelType = e.target.value;
     const teachableInputs = document.getElementById('teachable-inputs');
     const onnxInputs = document.getElementById('onnx-inputs');
+    const ultralyticsInputs = document.getElementById('ultralytics-inputs');
 
     if (modelType === 'teachable') {
         teachableInputs.style.display = 'flex';
         onnxInputs.style.display = 'none';
-    } else {
+        ultralyticsInputs.style.display = 'none';
+    } else if (modelType === 'onnx') {
         teachableInputs.style.display = 'none';
         onnxInputs.style.display = 'flex';
+        ultralyticsInputs.style.display = 'none';
+    } else if (modelType === 'ultralytics') {
+        teachableInputs.style.display = 'none';
+        onnxInputs.style.display = 'none';
+        ultralyticsInputs.style.display = 'flex';
     }
 
     // 파일 초기화
@@ -238,6 +250,8 @@ document.getElementById('model-type').addEventListener('change', (e) => {
     classesFile = null;
     onnxModelFile = null;
     onnxDataFile = null;
+    ultralyticsUrl = null;
+    ultralyticsApiKey = null;
     model = null;
     onnxSession = null;
     metadata = null;
@@ -249,6 +263,8 @@ document.getElementById('model-type').addEventListener('change', (e) => {
     document.getElementById('classes-status').textContent = '❌';
     document.getElementById('onnx-status').textContent = '❌';
     document.getElementById('onnx-data-status').textContent = '⚪';
+    document.getElementById('ultralytics-url-status').textContent = '❌';
+    document.getElementById('ultralytics-api-key-status').textContent = '❌';
     document.getElementById('model-status-msg').textContent = '';
 
     checkFilesReady();
@@ -284,11 +300,38 @@ document.getElementById('onnx-data').addEventListener('change', (e) => {
     document.getElementById('onnx-data-status').textContent = onnxDataFile ? '✅' : '⚪';
 });
 
+// Ultralytics API 입력 리스너
+document.getElementById('ultralytics-url')?.addEventListener('input', (e) => {
+    ultralyticsUrl = e.target.value.trim();
+    document.getElementById('ultralytics-url-status').textContent = ultralyticsUrl ? '✅' : '❌';
+    checkFilesReady();
+});
+
+document.getElementById('ultralytics-api-key')?.addEventListener('input', (e) => {
+    ultralyticsApiKey = e.target.value.trim();
+    document.getElementById('ultralytics-api-key-status').textContent = ultralyticsApiKey ? '✅' : '❌';
+    checkFilesReady();
+});
+
+document.getElementById('ultralytics-conf')?.addEventListener('input', (e) => {
+    ultralyticsConf = parseFloat(e.target.value);
+});
+
+document.getElementById('ultralytics-iou')?.addEventListener('input', (e) => {
+    ultralyticsIou = parseFloat(e.target.value);
+});
+
+document.getElementById('ultralytics-imgsz')?.addEventListener('change', (e) => {
+    ultralyticsImgsz = parseInt(e.target.value);
+});
+
 function checkFilesReady() {
     if (modelType === 'teachable') {
         document.getElementById('load-model-btn').disabled = !(metadataFile && modelFile && weightsFile);
-    } else {
+    } else if (modelType === 'onnx') {
         document.getElementById('load-model-btn').disabled = !(classesFile && onnxModelFile);
+    } else if (modelType === 'ultralytics') {
+        document.getElementById('load-model-btn').disabled = !(ultralyticsUrl && ultralyticsApiKey);
     }
 }
 
@@ -298,8 +341,10 @@ document.getElementById('load-model-btn').addEventListener('click', async () => 
     try {
         if (modelType === 'teachable') {
             await loadTeachableModel(statusMsg);
-        } else {
+        } else if (modelType === 'onnx') {
             await loadOnnxModel(statusMsg);
+        } else if (modelType === 'ultralytics') {
+            await loadUltralyticsModel(statusMsg);
         }
         document.getElementById('start-webcam-btn').disabled = false;
         disabledClasses.clear(); // 비활성화 클래스 초기화
@@ -385,6 +430,13 @@ async function loadOnnxModel(statusMsg) {
     }
 
     statusMsg.textContent = `✅ ONNX 모델 로드 완료! 입력: ${onnxInputSize}x${onnxInputSize}, 클래스: ${labels.join(', ')}`;
+}
+
+async function loadUltralyticsModel(statusMsg) {
+    // 빈 메타데이터로 초기화 - API 응답에서 동적으로 클래스 수집
+    metadata = { labels: [] };
+
+    statusMsg.textContent = `✅ Ultralytics API 설정 완료! URL: ${ultralyticsUrl}`;
 }
 
 function displayClassLabels() {
@@ -478,7 +530,12 @@ function updateTestButton() {
 }
 
 async function runAnalysis() {
-    if ((modelType === 'teachable' && !model) || (modelType === 'onnx' && !onnxSession) || captures.length === 0)
+    if (
+        (modelType === 'teachable' && !model) ||
+        (modelType === 'onnx' && !onnxSession) ||
+        (modelType === 'ultralytics' && !ultralyticsUrl) ||
+        captures.length === 0
+    )
         return;
     const btn = document.getElementById('start-test-btn');
     btn.textContent = '분석 중...';
@@ -489,10 +546,18 @@ async function runAnalysis() {
     for (let i = 0; i < captures.length; i++) {
         if (modelType === 'teachable') {
             results.push(await predictImageTeachable(captures[i]));
-        } else {
+        } else if (modelType === 'onnx') {
             results.push(await predictImageOnnx(captures[i]));
+        } else if (modelType === 'ultralytics') {
+            results.push(await predictImageUltralytics(captures[i]));
         }
     }
+
+    // Ultralytics API의 경우 분석 후 클래스 레이블 표시
+    if (modelType === 'ultralytics') {
+        displayClassLabels();
+    }
+
     displayResults();
 
     // 분석 완료 후 초기화하여 다시 테스트 가능하게
@@ -791,6 +856,113 @@ async function predictImageOnnx(imageData) {
             }
         };
         img.src = imageData;
+    });
+}
+
+async function predictImageUltralytics(imageData) {
+    return new Promise(async (resolve) => {
+        try {
+            // Base64 이미지를 Blob으로 변환
+            const response = await fetch(imageData);
+            const blob = await response.blob();
+
+            // FormData 생성
+            const formData = new FormData();
+            formData.append('file', blob, 'image.jpg');
+            formData.append('conf', ultralyticsConf.toString());
+            formData.append('iou', ultralyticsIou.toString());
+            formData.append('imgsz', ultralyticsImgsz.toString());
+
+            // API 호출
+            const apiResponse = await fetch(ultralyticsUrl, {
+                method: 'POST',
+                headers: {
+                    Authorization: `Bearer ${ultralyticsApiKey}`,
+                },
+                body: formData,
+            });
+
+            if (!apiResponse.ok) {
+                throw new Error(`API 오류: ${apiResponse.status} ${apiResponse.statusText}`);
+            }
+
+            const result = await apiResponse.json();
+            console.log('Ultralytics API 응답:', result);
+
+            // API 응답 포맷에 따라 결과 파싱
+            // Ultralytics API는 다양한 포맷을 반환할 수 있으므로 적절히 처리
+            let predictions = [];
+
+            if (result.images && Array.isArray(result.images) && result.images[0]?.results) {
+                // 표준 Ultralytics 응답 형식: { images: [{ results: [...] }] }
+                predictions = result.images[0].results;
+            } else if (result.predictions && Array.isArray(result.predictions)) {
+                predictions = result.predictions;
+            } else if (result.data && Array.isArray(result.data)) {
+                predictions = result.data;
+            } else if (Array.isArray(result)) {
+                predictions = result;
+            }
+
+            console.log('파싱된 predictions:', predictions);
+
+            // 예측 결과가 없는 경우
+            if (predictions.length === 0) {
+                resolve({
+                    label: 'no_object',
+                    confidence: 0,
+                    disabled: false,
+                });
+                return;
+            }
+
+            // 가장 높은 confidence를 가진 예측 선택
+            let bestPrediction = predictions[0];
+            for (const pred of predictions) {
+                const conf = pred.confidence || pred.conf || 0;
+                const bestConf = bestPrediction.confidence || bestPrediction.conf || 0;
+                if (conf > bestConf) {
+                    bestPrediction = pred;
+                }
+            }
+
+            // 클래스 인덱스 또는 이름 추출
+            const classIndex = bestPrediction.class_id || bestPrediction.class || bestPrediction.cls;
+            const className = bestPrediction.class_name || bestPrediction.name;
+            const confidence = bestPrediction.confidence || bestPrediction.conf || 0;
+
+            // 클래스 이름 결정
+            let label;
+            if (className) {
+                label = className;
+            } else if (classIndex !== undefined && metadata.labels[classIndex]) {
+                label = metadata.labels[classIndex];
+            } else {
+                label = 'unknown';
+            }
+
+            // 새로운 클래스를 발견하면 metadata에 추가
+            if (label && !metadata.labels.includes(label)) {
+                metadata.labels.push(label);
+                console.log(`새로운 클래스 발견: ${label}`);
+            }
+
+            const disabled = disabledClasses.has(label);
+
+            resolve({
+                label: label,
+                confidence: parseFloat(confidence),
+                disabled: disabled,
+            });
+        } catch (error) {
+            console.error('Ultralytics API 오류:', error);
+            resolve({
+                label: 'error',
+                confidence: 0,
+                disabled: false,
+                error: error.message,
+            });
+        }
     });
 }
 

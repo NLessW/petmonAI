@@ -1,0 +1,5 @@
+belt
+cap
+no_object
+ok_normal
+label
